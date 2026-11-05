@@ -1,2 +1,1 @@
-// What this package implements, and a first-hand link to the specification it
-// implements. A package without that link is not finished.
+// The task protocol follows Celery's message shape. https://docs.celeryq.dev/en/stable/internals/protocol.html
