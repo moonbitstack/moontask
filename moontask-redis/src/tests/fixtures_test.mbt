@@ -30,24 +30,25 @@ fn unique(prefix : String) -> String {
 async fn live(port : Int32) -> @socket.Connection? {
   let options = @moonredis.ClientOptions::at("127.0.0.1", port)
   // A port that is forwarded but not served accepts the connection and then
-  // never answers, so the check is a round trip with a deadline rather than a
-  // connect.
-  let probe = @async.with_timeout_opt(2000, async fn() {
-    let conn = @socket.Connection::connect(options)
+  // never answers, so the check is a round trip with a deadline; a server that
+  // refuses outright is the same answer, arrived at faster.
+  let attempt = async fn() -> @socket.Connection? {
+    let conn = @socket.Connection::connect(options) catch {
+      _ => return None
+    }
     let client = @moonredis.Client::new(conn)
-    let pong = client.ping()
-    (conn, pong)
-  })
-  match probe {
-    Some((conn, pong)) =>
-      if pong == "PONG" {
-        Some(conn)
-      } else if @env.get_env_var("MOONTASK_REDIS_LIVE") is Some(_) {
-        fail("redis on 127.0.0.1:\{port} answered \{pong}")
-      } else {
-        None
-      }
-    None => {
+    let pong = client.ping() catch {
+      _ => return None
+    }
+    if pong == "PONG" {
+      Some(conn)
+    } else {
+      None
+    }
+  }
+  match @async.with_timeout_opt(2000, attempt) {
+    Some(Some(conn)) => Some(conn)
+    _ => {
       if @env.get_env_var("MOONTASK_REDIS_LIVE") is Some(_) {
         fail("no redis on 127.0.0.1:\{port}")
       }

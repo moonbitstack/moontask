@@ -99,8 +99,10 @@ jobs:
 
       - name: the server answers
         run: |
+          # The client lives in the container, not on the runner, so the probe is
+          # a plain socket that speaks the first two bytes of the protocol.
           for attempt in $(seq 1 20); do
-            if redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG; then exit 0; fi
+            if (exec 3<>/dev/tcp/127.0.0.1/6379; printf 'PING\r\n' >&3; head -c 5 <&3 | grep -q PONG); then exit 0; fi
             sleep 1
           done
           echo "::error::no redis on 127.0.0.1:6379"
