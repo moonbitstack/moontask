@@ -66,7 +66,10 @@ pub fn chain(sigs : Array[Sig]) -> Sig {
   let messages = []
   for sig in sigs {
     for message in sig.links() {
-      messages.push(message)
+      // Every link of a chain built here is called with the arguments it was
+      // given, which is what `immutable` means to a worker on either side; the
+      // flag has to be on each link, since each one is published on its own.
+      messages.push({ ..message, immutable: true, })
     }
   }
   if messages.length() == 0 {

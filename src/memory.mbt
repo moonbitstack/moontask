@@ -233,6 +233,50 @@ pub impl @spec.Counter for MemoryBroker with fn drop(
 }
 
 ///|
+/// Count a settled part, and when it was the last, collect every part's result
+/// from the store beside this counter.
+pub impl @spec.Counter for MemoryBroker with fn settle(
+  self : MemoryBroker,
+  chord : @spec.Chord,
+  id : String,
+  outcome : @spec.Outcome,
+) -> @spec.ChordState raise @spec.Refused {
+  ignore(id)
+  let remaining = self.add(chord.key, -1)
+  if remaining > 0 {
+    return @spec.ChordState::Waiting(remaining~)
+  }
+  self.drop(chord.key)
+  let values = []
+  let mut failure = None
+  for part in chord.ids {
+    match self.fetch(part) {
+      Some(done) =>
+        match done.state {
+          @spec.Succeeded => values.push(done.result.unwrap_or(Json::null()))
+          @spec.Failed =>
+            if failure is None {
+              failure = Some(done.error.unwrap_or("failed"))
+            }
+          _ => if failure is None { failure = Some("part did not finish") }
+        }
+      None => if failure is None { failure = Some("part did not finish") }
+    }
+  }
+  // This part's own outcome is already stored, so a part whose id the chord did
+  // not list — a chord published by someone who does not send its ids — still
+  // counts as the failure it was.
+  if failure is None {
+    match outcome.state {
+      @spec.Failed => failure = Some(outcome.error.unwrap_or("failed"))
+      @spec.Revoked => failure = Some("part did not finish")
+      _ => ()
+    }
+  }
+  @spec.ChordState::Settled(values~, failure~)
+}
+
+///|
 pub impl @spec.Inspector for MemoryBroker with fn queues(self : MemoryBroker) -> Array[
   @spec.QueueInfo,
 ] raise @spec.Refused {
@@ -304,7 +348,7 @@ pub extend MemoryBroker with @spec.Broker::{publish, consume, ack, reject}
 pub extend MemoryBroker with @spec.Backend::{store, fetch}
 
 ///|
-pub extend MemoryBroker with @spec.Counter::{add, drop}
+pub extend MemoryBroker with @spec.Counter::{add, drop, settle}
 
 ///|
 pub extend MemoryBroker with @spec.Inspector::{queues, peek}

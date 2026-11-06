@@ -54,6 +54,8 @@ fn[A : ToJson, R] Task::compose(
     retries: 0,
     chain: [],
     chord: None,
+    single_arg: false,
+    immutable: false,
   }
 }
 

@@ -32,6 +32,21 @@ pub(open) trait Backend {
 }
 
 ///|
+/// What a chord's counter answers when one of its parts settles.
+///
+/// The counter owns the join, and not only the count, because where the parts'
+/// results are kept is a property of the store the counter lives in: a counter
+/// in memory has the store beside it, and Celery's redis counter stashes each
+/// result in the same sorted set it counts, keyed by the part's index.
+pub(all) enum ChordState {
+  /// Parts are still to come; `remaining` of them.
+  Waiting(remaining~ : Int32)
+  /// Every part is in: the values in the order the parts were declared, and the
+  /// first failure's message when one of them failed.
+  Settled(values~ : Array[Json], failure~ : String?)
+}
+
+///|
 /// The counter a chord waits on.
 ///
 /// It is separate from `Backend` because counting parts and keeping results are
@@ -40,7 +55,13 @@ pub(open) trait Backend {
 /// the add, so the part that brings the count to zero is the one that fires the
 /// callback; it must be atomic, since two parts finishing at once would
 /// otherwise both see a non-zero count or both see zero.
+///
+/// `add` with a positive delta opens a chord of that many parts before any of
+/// them is published; a negative delta is a plain decrement. `settle` is the
+/// call a worker makes once a part will not run again, and it is the one that
+/// answers with the parts' results when that part was the last.
 pub(open) trait Counter {
   async fn add(Self, key : String, delta : Int32) -> Int32 raise Refused
   async fn drop(Self, key : String) -> Unit raise Refused
+  async fn settle(Self, chord : Chord, id : String, outcome : Outcome) -> ChordState raise Refused
 }

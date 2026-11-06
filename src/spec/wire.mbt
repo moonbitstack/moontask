@@ -123,6 +123,12 @@ pub impl ToJson for Message with fn to_json(self) {
     Some(chord) => out["chord"] = Json(chord)
     None => ()
   }
+  if self.single_arg {
+    out["single_arg"] = Json::boolean(true)
+  }
+  if self.immutable {
+    out["immutable"] = Json::boolean(true)
+  }
   Json::object(out)
 }
 
@@ -229,6 +235,16 @@ fn Message::read(
     },
     chain,
     chord,
+    single_arg: match fields.get("single_arg") {
+      Some(True) => true
+      Some(False) => false
+      _ => false
+    },
+    immutable: match fields.get("immutable") {
+      Some(True) => true
+      Some(False) => false
+      _ => false
+    },
   }
 }
 

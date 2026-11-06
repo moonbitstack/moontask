@@ -181,6 +181,8 @@ pub async fn App::send(
     retries: 0,
     chain: [],
     chord: None,
+    single_arg: false,
+    immutable: false,
   }
   self.broker.publish(message.queue, message)
   Handle::of_json(self, [message.id], false)

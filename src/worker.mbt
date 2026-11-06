@@ -223,33 +223,27 @@ async fn Worker::handle(self : Worker, delivery : @spec.Delivery) -> Unit {
   let keep = !policy.ignore_result
   match result {
     None => {
-      self.record(
-        message.id,
-        @spec.Outcome::{
-          state: @spec.Revoked,
-          result: None,
-          error: Some("terminated while running"),
-          retries: message.retries,
-          at,
-        },
-        keep,
-      )
-      self.settle_chord(message, at)
+      let outcome : @spec.Outcome = {
+        state: @spec.Revoked,
+        result: None,
+        error: Some("terminated while running"),
+        retries: message.retries,
+        at,
+      }
+      self.record(message.id, outcome, keep)
+      self.settle_chord(message, outcome)
     }
     Some(Ok(value)) => {
-      self.record(
-        message.id,
-        @spec.Outcome::{
-          state: @spec.Succeeded,
-          result: Some(value),
-          error: None,
-          retries: message.retries,
-          at,
-        },
-        keep,
-      )
-      self.advance_chain(message)
-      self.settle_chord(message, at)
+      let outcome : @spec.Outcome = {
+        state: @spec.Succeeded,
+        result: Some(value),
+        error: None,
+        retries: message.retries,
+        at,
+      }
+      self.record(message.id, outcome, keep)
+      self.advance_chain(message, value)
+      self.settle_chord(message, outcome)
     }
     Some(Err(reason)) =>
       if message.retries < policy.retries {
@@ -272,12 +266,9 @@ async fn Worker::handle(self : Worker, delivery : @spec.Delivery) -> Unit {
         )
         app.broker.publish(retry.queue, retry)
       } else {
-        self.record(
-          message.id,
-          @spec.outcome_failed(reason, message.retries, at),
-          keep,
-        )
-        self.settle_chord(message, at)
+        let outcome = @spec.outcome_failed(reason, message.retries, at)
+        self.record(message.id, outcome, keep)
+        self.settle_chord(message, outcome)
       }
   }
   if policy.acks_late {
@@ -327,6 +318,7 @@ async fn Worker::record(
 async fn Worker::advance_chain(
   self : Worker,
   message : @spec.Message,
+  value : Json,
 ) -> Unit raise @spec.Refused {
   if message.chain.length() == 0 {
     return
@@ -338,7 +330,29 @@ async fn Worker::advance_chain(
     rest.push(message.chain[at])
     at = at + 1
   }
-  self.app.broker.publish(next.queue, { ..next, chain: rest, })
+  // A link that is not immutable is handed this link's result as its first
+  // argument, which is what Celery's chains do; the links a canvas here builds
+  // are immutable and get exactly the arguments they declared.
+  let args = if next.immutable {
+    next.args
+  } else {
+    match next.args {
+      Array(declared) => {
+        let merged = [value]
+        for item in declared {
+          merged.push(item)
+        }
+        Json::array(merged)
+      }
+      other => Json::array([value, other])
+    }
+  }
+  self.app.broker.publish(next.queue, {
+    ..next,
+    args,
+    single_arg: false,
+    chain: rest,
+  })
 }
 
 ///|
@@ -348,11 +362,14 @@ async fn Worker::advance_chain(
 ///
 /// A part is counted once it will not run again — after it succeeded, failed for
 /// good or was revoked — so a part that is only going to be retried leaves the
-/// chord open.
+/// chord open. Where the results are collected is the counter's business: a
+/// counter in memory reads them from the store beside it, and Celery's redis
+/// counter stashes each one as the part settles, in the same sorted set Celery
+/// joins on, so parts run on either side of the boundary complete one chord.
 async fn Worker::settle_chord(
   self : Worker,
   message : @spec.Message,
-  at : Int64,
+  outcome : @spec.Outcome,
 ) -> Unit raise @spec.Refused {
   let chord = match message.chord {
     Some(chord) => chord
@@ -362,41 +379,31 @@ async fn Worker::settle_chord(
     Some(counter) => counter
     None => raise @spec.Refused::Missing(kind="counter")
   }
-  let remaining = counter.add(chord.key, -1)
-  if remaining > 0 {
-    return
-  }
-  counter.drop(chord.key)
-  let backend = match self.app.backend {
-    Some(backend) => backend
-    None => raise @spec.Refused::Missing(kind="backend")
-  }
-  let values = []
-  let mut failure = None
-  for id in chord.ids {
-    match backend.fetch(id) {
-      Some(outcome) =>
-        match outcome.state {
-          @spec.Succeeded => values.push(outcome.result.unwrap_or(Json::null()))
-          @spec.Failed =>
-            if failure is None {
-              failure = Some(outcome.error.unwrap_or("failed"))
-            }
-          _ => if failure is None { failure = Some("part did not finish") }
+  match counter.settle(chord, message.id, outcome) {
+    @spec.ChordState::Waiting(_) => ()
+    @spec.ChordState::Settled(values~, failure~) =>
+      match failure {
+        Some(reason) => {
+          let backend = match self.app.backend {
+            Some(backend) => backend
+            None => raise @spec.Refused::Missing(kind="backend")
+          }
+          backend.store(
+            chord.callback.id,
+            @spec.outcome_failed("chord part failed: " + reason, 0, outcome.at),
+          )
         }
-      None => if failure is None { failure = Some("part did not finish") }
-    }
-  }
-  match failure {
-    Some(reason) =>
-      backend.store(
-        chord.callback.id,
-        @spec.outcome_failed("chord part failed: " + reason, 0, at),
-      )
-    None => {
-      let callback = { ..chord.callback, args: Json::array(values), }
-      self.app.broker.publish(callback.queue, callback)
-    }
+        None => {
+          // One argument, the list of results: a callback is called with the
+          // list, not with the list spread into its arguments.
+          let callback = {
+            ..chord.callback,
+            args: Json::array(values),
+            single_arg: true,
+          }
+          self.app.broker.publish(callback.queue, callback)
+        }
+      }
   }
 }
 

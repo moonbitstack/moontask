@@ -119,6 +119,7 @@ pub async fn MemoryBroker::peek(Self, String, limit~ : Int32) -> Array[@spec.Mes
 pub async fn MemoryBroker::publish(Self, String, @spec.Message) -> Unit raise @spec.Refused
 pub async fn MemoryBroker::queues(Self) -> Array[@spec.QueueInfo] raise @spec.Refused
 pub async fn MemoryBroker::reject(Self, @spec.Delivery, requeue~ : Bool) -> Unit raise @spec.Refused
+pub async fn MemoryBroker::settle(Self, @spec.Chord, String, @spec.Outcome) -> @spec.ChordState raise @spec.Refused
 pub async fn MemoryBroker::store(Self, String, @spec.Outcome) -> Unit raise @spec.Refused
 pub impl @spec.Backend for MemoryBroker
 pub impl @spec.Broker for MemoryBroker

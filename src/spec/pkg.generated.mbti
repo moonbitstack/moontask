@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn celery_group_key(String, String) -> String
+
 pub fn celery_result_key(String) -> String
 
 pub fn outcome_failed(String, Int32, Int64) -> Outcome
@@ -48,6 +50,11 @@ pub fn Chord::to_repr(Self) -> @debug.Repr
 pub impl @json.FromJson for Chord
 pub impl @json.ToJson for Chord
 
+pub(all) enum ChordState {
+  Waiting(remaining~ : Int32)
+  Settled(values~ : Array[@json.Json], failure~ : String?)
+}
+
 #derive(Eq, @debug.Debug)
 pub(all) struct Delivery {
   message : Message
@@ -70,6 +77,8 @@ pub(all) struct Message {
   retries : Int32
   chain : Array[Message]
   chord : Chord?
+  single_arg : Bool
+  immutable : Bool
 }
 pub fn Message::equal(Self, Self) -> Bool
 pub fn Message::from_celery(@json.Json, queue~ : String) -> Self raise Refused
@@ -153,6 +162,7 @@ pub(open) trait Broker {
 pub(open) trait Counter {
   async fn add(Self, String, Int32) -> Int32 raise Refused
   async fn drop(Self, String) -> Unit raise Refused
+  async fn settle(Self, Chord, String, Outcome) -> ChordState raise Refused
 }
 
 pub(open) trait Inspector {
