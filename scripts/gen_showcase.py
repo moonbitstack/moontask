@@ -47,7 +47,11 @@ def main() -> int:
     for name, path, title in EXAMPLES:
         recordings[name] = {"title": title, "command": f"moon run {path}", "lines": record(path)}
     target = ROOT / "docs" / "assets" / "transcripts.js"
-    target.write_text(HEADER + json.dumps(recordings, indent=2) + FOOTER, encoding="utf-8")
+    target.write_text(
+        HEADER + json.dumps(recordings, indent=2) + FOOTER,
+        encoding="utf-8",
+        newline="\n",
+    )
     total = sum(len(value["lines"]) for value in recordings.values())
     print(f"{total} lines recorded from {len(recordings)} examples -> docs/assets/transcripts.js")
     return 0

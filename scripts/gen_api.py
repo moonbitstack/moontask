@@ -228,7 +228,7 @@ def main() -> int:
         flags=re.S,
     )
     verify(total, page)
-    (ROOT / "docs" / "api.html").write_text(page, encoding="utf-8")
+    (ROOT / "docs" / "api.html").write_text(page, encoding="utf-8", newline="\n")
     print(f"{total} public entries in {len(PACKAGES)} packages -> docs/api.html")
     return 0
 
