@@ -453,7 +453,7 @@ footer {
   height: clamp(430px, 48vw, 620px);
   border: 0;
   border-radius: 2px;
-  background: #f2efe7;
+  background: var(--figure-bg);
   outline: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
   outline-offset: -1px;
 }
@@ -472,3 +472,58 @@ footer {
   .plate iframe { height: 88vh; }
   .plate-hint { display: none; }
 }
+
+/* A choice the reader made, on top of the system's. The attribute is set in
+ * <head> before this file loads, so there is no flash of the wrong paper. */
+:root[data-theme="dark"] {
+  --paper: #16140f;
+  --paper-2: #1d1a14;
+  --ink: #ece6d8;
+  --ink-2: #a89e8b;
+  --line: #3a342a;
+  --wood: #6a4a2c;
+  --wood-dark: #3f2c1a;
+  --brass: #d3a952;
+  --seal: #b4574a;
+  --green: #7fae8b;
+  --card: #221f18;
+  --figure-bg: #14120d;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 20px -12px rgba(0, 0, 0, 0.9);
+}
+
+:root[data-theme="light"] {
+  --paper: #efe9dd;
+  --paper-2: #e3dbcb;
+  --ink: #23201b;
+  --ink-2: #5f584c;
+  --line: #cabfa8;
+  --wood: #8a6540;
+  --wood-dark: #6b4c2e;
+  --brass: #b1862f;
+  --seal: #8c3b2f;
+  --green: #3f6b4a;
+  --card: #fbf7ee;
+  --figure-bg: #f2efe7;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset, 0 6px 14px -8px rgba(50, 38, 20, 0.5);
+}
+
+:root { --figure-bg: #f2efe7; }
+
+/* The switch: a sun that turns into a moon, in the same ink as the nav. */
+.theme-toggle {
+  all: unset;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+.theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--ink-2); }
+.theme-toggle svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+.theme-toggle .rays { transition: opacity 0.25s ease, transform 0.25s ease; transform-origin: 10px 10px; }
+.theme-toggle[aria-pressed="true"] .rays { opacity: 0; transform: rotate(-40deg) scale(0.6); }
+.theme-toggle[aria-pressed="true"] circle { transform-origin: 10px 10px; transform: scale(0.86); }
+.to-top, .top { align-items: center; }
