@@ -33,13 +33,9 @@ async fn live(port : Int32) -> @socket.Connection? {
   // never answers, so the check is a round trip with a deadline; a server that
   // refuses outright is the same answer, arrived at faster.
   let attempt = async fn() -> @socket.Connection? {
-    let conn = @socket.Connection::connect(options) catch {
-      _ => return None
-    }
+    let conn = @socket.Connection::connect(options) catch { _ => return None }
     let client = @moonredis.Client::new(conn)
-    let pong = client.ping() catch {
-      _ => return None
-    }
+    let pong = client.ping() catch { _ => return None }
     if pong == "PONG" {
       Some(conn)
     } else {
