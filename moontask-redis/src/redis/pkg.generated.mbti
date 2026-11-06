@@ -21,6 +21,7 @@ pub struct Broker {
   lease : Int64
 }
 pub async fn Broker::ack(Self, @spec.Delivery) -> Unit raise @spec.Refused
+pub fn Broker::celery(&@moonredis.RedisConn, clock~ : () -> Int64, consumer? : String, lease? : Int64) -> Self
 pub async fn Broker::consume(Self, ArrayView[String], prefetch~ : Int32) -> @spec.Delivery raise @spec.Refused
 pub fn Broker::consumer(Self) -> String
 pub fn Broker::new(&@moonredis.RedisConn, clock~ : () -> Int64, prefix? : String, consumer? : String, lease? : Int64) -> Self
@@ -35,6 +36,7 @@ pub impl @spec.Inspector for Broker
 
 pub struct Keys {
   prefix : String
+  celery : Bool
 }
 
 pub struct SerialConn {

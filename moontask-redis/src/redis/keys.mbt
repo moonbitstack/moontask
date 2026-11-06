@@ -13,19 +13,39 @@
 /// The key names one broker uses, under its prefix.
 pub struct Keys {
   prefix : String
+  /// Whether the ready key is Celery's — the queue's own name, no prefix — while
+  /// everything else keeps this prefix. That is the whole of the difference
+  /// between a broker of ours and one a Celery worker can share.
+  celery : Bool
 }
 
 ///|
 fn Keys::new(prefix : String) -> Keys {
-  { prefix, }
+  { prefix, celery: false }
+}
+
+///|
+/// The keys a Celery worker and this broker agree on: the queue is the list
+/// named after it, and the delay set and in-flight list are ours, under
+/// `moontask`.
+fn Keys::celery() -> Keys {
+  { prefix: "moontask", celery: true }
+}
+
+///|
+fn Keys::is_celery(self : Keys) -> Bool {
+  self.celery
 }
 
 ///|
 /// The list a queue is ready on.
 fn Keys::ready(self : Keys, queue : String) -> String {
-  "\{self.prefix}:q:\{queue}"
+  if self.celery {
+    queue
+  } else {
+    "\{self.prefix}:q:\{queue}"
+  }
 }
-
 ///|
 /// The sorted set of a queue's messages waiting for their eta.
 fn Keys::delayed(self : Keys, queue : String) -> String {
@@ -56,9 +76,12 @@ fn Keys::known(self : Keys) -> String {
 ///|
 /// The key a result is stored under.
 fn Keys::result(self : Keys, id : String) -> String {
-  "\{self.prefix}:r:\{id}"
+  if self.celery {
+    @spec.celery_result_key(id)
+  } else {
+    "\{self.prefix}:r:\{id}"
+  }
 }
-
 ///|
 /// The key a chord counts its parts under.
 fn Keys::chord(self : Keys, key : String) -> String {

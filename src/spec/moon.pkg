@@ -12,5 +12,12 @@
 // https://docs.celeryq.dev/en/stable/internals/protocol.html
 import {
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/base64",
+  "moonbitlang/core/encoding/utf8",
   "moonbitstack/moondate",
 }
+
+import {
+  "moonbitlang/core/encoding/base64",
+  "moonbitlang/core/encoding/utf8",
+} for "test"

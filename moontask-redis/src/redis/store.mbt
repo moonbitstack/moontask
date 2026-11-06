@@ -36,8 +36,14 @@ pub impl @spec.Backend for Store with fn store(
   id : String,
   outcome : @spec.Outcome,
 ) -> Unit raise @spec.Refused {
-  let text = Json(outcome).stringify()
-  let _ = self.client.set(self.keys.result(id), text) catch {
+  let text = if self.keys.is_celery() {
+    outcome.to_celery().stringify()
+  } else {
+    Json(outcome).stringify()
+  }
+  // Celery's own expiry for a result, so a Python client and this store agree on
+  // how long an answer is kept.
+  let _ = self.client.set(self.keys.result(id), text, px=86400000L) catch {
     error => raise @spec.Refused::Transport(got=@debug.to_string(error))
   }
 }
@@ -50,6 +56,15 @@ pub impl @spec.Backend for Store with fn fetch(self : Store, id : String) -> @sp
   match value {
     Some(bytes) => {
       let text = @utf8.decode_lossy(bytes[:])
+      if self.keys.is_celery() {
+        return Some(
+          @spec.Outcome::from_celery(
+            @json.parse(text) catch {
+              _ => raise @spec.Refused::Malformed(got=text)
+            },
+          ),
+        )
+      }
       let outcome : @spec.Outcome = @json.from_json(
         @json.parse(text) catch {
           _ => raise @spec.Refused::Malformed(got=text)

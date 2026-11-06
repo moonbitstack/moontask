@@ -44,6 +44,29 @@ pub fn Broker::new(
 }
 
 ///|
+/// A broker that shares its ready queue with a Celery worker: the queue is the
+/// list named after it, and the payload is Celery's envelope.
+///
+/// The delayed set and the in-flight lists stay under this library's own prefix,
+/// because Celery's redis transport keeps neither on the server — a worker there
+/// holds an eta message in memory, and a reservation in one hash for all
+/// consumers.
+pub fn Broker::celery(
+  conn : &@moonredis.RedisConn,
+  clock~ : () -> Int64,
+  consumer~ : String = "worker",
+  lease~ : Int64 = 30000L,
+) -> Broker {
+  {
+    client: @moonredis.Client::new(SerialConn::new(conn)),
+    clock,
+    keys: Keys::celery(),
+    consumer: "\{consumer}-\{clock()}",
+    lease,
+  }
+}
+
+///|
 /// The name this broker holds its in-flight work under.
 pub fn Broker::consumer(self : Broker) -> String {
   self.consumer
@@ -63,7 +86,11 @@ pub impl @spec.Broker for Broker with fn publish(
   queue : String,
   message : @spec.Message,
 ) -> Unit raise @spec.Refused {
-  let payload = message.text()
+  let payload = if self.keys.is_celery() {
+    message.to_celery().stringify()
+  } else {
+    message.text()
+  }
   let now = (self.clock)()
   let _ = self.client.sadd(self.keys.known(), [queue]) catch {
     error => raise refused(error)

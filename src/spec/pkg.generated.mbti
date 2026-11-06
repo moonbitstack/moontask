@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn celery_result_key(String) -> String
+
 pub fn outcome_failed(String, Int32, Int64) -> Outcome
 
 pub fn outcome_succeeded(@json.Json, Int32, Int64) -> Outcome
@@ -70,6 +72,7 @@ pub(all) struct Message {
   chord : Chord?
 }
 pub fn Message::equal(Self, Self) -> Bool
+pub fn Message::from_celery(@json.Json, queue~ : String) -> Self raise Refused
 pub fn Message::from_json(@json.Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Message::is_due(Self, Int64) -> Bool
 pub fn Message::is_expired(Self, Int64) -> Bool
@@ -77,6 +80,7 @@ pub fn Message::new(String, String, @json.Json) -> Self
 pub fn Message::not_equal(Self, Self) -> Bool
 pub fn Message::parse(StringView) -> Self raise Refused
 pub fn Message::text(Self) -> String
+pub fn Message::to_celery(Self) -> @json.Json
 pub fn Message::to_json(Self) -> @json.Json
 pub fn Message::to_repr(Self) -> @debug.Repr
 pub impl @json.FromJson for Message
@@ -91,8 +95,10 @@ pub(all) struct Outcome {
   at : Int64
 }
 pub fn Outcome::equal(Self, Self) -> Bool
+pub fn Outcome::from_celery(@json.Json) -> Self raise Refused
 pub fn Outcome::from_json(@json.Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Outcome::not_equal(Self, Self) -> Bool
+pub fn Outcome::to_celery(Self) -> @json.Json
 pub fn Outcome::to_json(Self) -> @json.Json
 pub fn Outcome::to_repr(Self) -> @debug.Repr
 pub impl @json.FromJson for Outcome
