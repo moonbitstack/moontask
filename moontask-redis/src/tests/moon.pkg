@@ -1,0 +1,20 @@
+// The broker and the store against a real redis: the shapes, the order, the
+// lease, and the whole queue running through it.
+//
+// These tests need a server. With MOONTASK_REDIS_LIVE set they fail when one is
+// not reachable, which is what CI does; without it they return early, so a
+// machine with no redis still runs the rest of the suite.
+import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/spec",
+  "moonbitstack/moontask-redis/redis",
+  "moonbitstack/moonredis",
+  "moonbitstack/moonredis/socket",
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+} for "test"
+
+supported_targets = "native"
+
+// Every test in this file shares one server, so they must not run at once.
+max_concurrent_tests = 1

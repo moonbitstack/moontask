@@ -13,6 +13,9 @@ pub(all) suberror Refused {
   Unknown(name~ : String)
   /// A broker handed over a message that does not decode.
   Malformed(got~ : String)
+  /// The transport under a broker or a store failed: a connection that closed,
+  /// a reply that never came, a server that refused the command.
+  Transport(got~ : String)
   /// The call needs a capability the app was not given: a result store, a
   /// chord counter, a worker loop that is not running.
   Missing(kind~ : String)
@@ -36,6 +39,7 @@ pub impl Show for Refused with fn output(self, logger) {
   match self {
     Unknown(name~) => logger.write_string("unknown: " + name)
     Malformed(got~) => logger.write_string("malformed: " + got)
+    Transport(got~) => logger.write_string("transport: " + got)
     Missing(kind~) => logger.write_string("missing: " + kind)
     Timeout(limit~) => logger.write_string("timed out after \{limit} ms")
     Failed(got~, retries~) =>

@@ -16,6 +16,7 @@ pub fn outcome_succeeded(@json.Json, Int32, Int64) -> Outcome
 pub(all) suberror Refused {
   Unknown(name~ : String)
   Malformed(got~ : String)
+  Transport(got~ : String)
   Missing(kind~ : String)
   Timeout(limit~ : Int64)
   Failed(got~ : String, retries~ : Int32)
