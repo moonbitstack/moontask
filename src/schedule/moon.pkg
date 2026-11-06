@@ -1,0 +1,12 @@
+// In-process scheduling: run a function on a rhythm inside one process, with no
+// queue and no worker behind it.
+//
+// This is the shape a script uses for housekeeping that must happen on a clock
+// but does not need to survive the process, or be run anywhere else. It is a
+// separate package because it needs neither a broker nor a store: a caller that
+// only wants a timer should not have to link the queue.
+import {
+  "moonbitstack/moontask/spec",
+  "moonbitstack/moontask/wait",
+  "moonbitlang/core/string",
+}

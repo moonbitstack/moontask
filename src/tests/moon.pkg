@@ -8,6 +8,7 @@
 import {
   "moonbitstack/moontask",
   "moonbitstack/moontask/spec",
+  "moonbitstack/moontask/schedule",
   "moonbitlang/async",
   "moonbitstack/moondate/cron",
 } for "test"

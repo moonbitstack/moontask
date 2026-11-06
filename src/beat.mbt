@@ -167,6 +167,6 @@ pub async fn Beat::run(self : Beat) -> Unit raise @spec.Refused {
       entry.next = entry.schedule.after(entry.next.unwrap_or(now))
     }
     let wait = if next_at <= now { 1L } else { next_at - now }
-    nap(if wait > 50L { 50 } else { wait.to_int() })
+    @wait.nap(if wait > 50L { 50 } else { wait.to_int() })
   }
 }

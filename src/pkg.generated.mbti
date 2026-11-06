@@ -22,8 +22,6 @@ pub fn milliseconds_of(@moondate.Moment) -> Int64?
 
 pub fn moment_of(Int64) -> @moondate.Moment?
 
-pub async fn nap(Int32) -> Unit noraise
-
 pub let policy : Policy
 
 // Errors

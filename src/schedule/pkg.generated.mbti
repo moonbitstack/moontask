@@ -1,0 +1,50 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moontask/schedule"
+
+import {
+  "moonbitstack/moontask/spec",
+}
+
+// Values
+pub fn every(Int64) -> Job
+
+// Errors
+
+// Types and methods
+pub struct Job {
+  name : String
+  interval : Int64
+  anchor : Int64
+  action : (async () -> Unit)?
+  mut next : Int64
+  mut runs : Int32
+  mut failures : Int32
+}
+pub fn Job::at(Self, StringView) -> Self raise @spec.Refused
+pub fn Job::days(Self) -> Self
+pub fn Job::failures(Self) -> Int32
+pub fn Job::hours(Self) -> Self
+pub fn Job::interval(Self) -> Int64
+pub fn Job::minutes(Self) -> Self
+pub fn Job::name(Self) -> String
+pub fn Job::named(Self, String) -> Self
+pub fn Job::next_after(Self, Int64) -> Int64
+pub fn Job::next_at(Self) -> Int64
+pub fn Job::run(Self, async () -> Unit) -> Self
+pub fn Job::runs(Self) -> Int32
+pub fn Job::seconds(Self) -> Self
+
+pub struct Scheduler {
+  clock : () -> Int64
+  jobs : Array[Job]
+  mut stopping : Bool
+}
+pub fn Scheduler::add(Self, Job) -> Unit
+pub fn Scheduler::new(clock~ : () -> Int64) -> Self
+pub fn Scheduler::pending(Self) -> Array[Job]
+pub async fn Scheduler::run(Self) -> Unit
+pub fn Scheduler::stop(Self) -> Unit
+
+// Type aliases
+
+// Traits

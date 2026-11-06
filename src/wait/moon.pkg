@@ -1,0 +1,9 @@
+// Waiting, in one place, for every package that has to let time pass.
+//
+// The event loop's timer is native and JavaScript only; under WebAssembly a wait
+// has to come from the host. Both the queue and the in-process scheduler need a
+// wait that compiles everywhere, so it lives here rather than being written
+// twice with a target-specific copy each time.
+import {
+  "moonbitlang/async",
+}

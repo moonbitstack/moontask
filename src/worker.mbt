@@ -118,7 +118,7 @@ pub async fn Worker::stop(self : Worker, grace~ : Int64 = 30000L) -> Unit {
   // clock the app was given.
   let deadline = @async.now() + grace
   while self.inflight > 0 && @async.now() < deadline {
-    nap(2)
+    @wait.nap(2)
   }
   for consumer in self.consumers {
     consumer.cancel()
@@ -440,6 +440,6 @@ async fn Worker::wait_for_rate(
     // the caller's, so a window that turns over sooner than the first estimate
     // must not hold the run back.
     let wait = limiter.reset - now
-    nap(if wait > 5L { 5 } else if wait > 0L { wait.to_int() } else { 1 })
+    @wait.nap(if wait > 5L { 5 } else if wait > 0L { wait.to_int() } else { 1 })
   }
 }

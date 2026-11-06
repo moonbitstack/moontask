@@ -153,7 +153,7 @@ pub impl @spec.Broker for MemoryBroker with fn consume(
       }
       None => {
         self.lock.release()
-        nap(1)
+        @wait.nap(1)
       }
     }
   } nobreak {

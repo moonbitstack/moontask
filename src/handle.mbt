@@ -122,7 +122,7 @@ pub async fn[R] Handle::get(
         }
       None => ()
     }
-    nap(poll_interval.to_int())
+    @wait.nap(poll_interval.to_int())
   } nobreak {
     raise @spec.Refused::Timeout(limit~)
   }
