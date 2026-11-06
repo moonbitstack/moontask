@@ -469,6 +469,6 @@ footer {
 .plate figcaption a { color: var(--ink); text-decoration-color: color-mix(in srgb, var(--brass) 70%, transparent); }
 
 @media (width <= 620px) {
-  .plate iframe { height: 76vh; }
+  .plate iframe { height: 88vh; }
   .plate-hint { display: none; }
 }
