@@ -189,10 +189,20 @@ pub impl @spec.Broker for Broker with fn consume(
           // A payload that does not decode is not a message this worker can
           // run: it goes back as it came, so an operator can look at it rather
           // than losing it, and the caller hears why the claim failed.
-          let parsed : Result[@spec.Message, @spec.Refused] = Ok(
-            @spec.Message::parse(text),
-          ) catch {
-            error => Err(error)
+          let attempt : Result[@spec.Message, @spec.Refused] = if self.keys.is_celery() {
+            Ok(
+              @spec.Message::from_celery(
+                @json.parse(text) catch {
+                  _ => raise @spec.Refused::Malformed(got=text)
+                },
+                queue~,
+              ),
+            )
+          } else {
+            Ok(@spec.Message::parse(text))
+          }
+          let parsed : Result[@spec.Message, @spec.Refused] = attempt catch {
+            error => Err(@spec.Refused::Transport(got=@debug.to_string(error)))
           }
           match parsed {
             Ok(message) => return { message, queue, receipt: text, }

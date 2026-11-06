@@ -38,13 +38,34 @@ The body decodes to `[[21], {}, {callbacks, errbacks, chain, chord}]`.
   after the queue, with no prefix — while keeping its delay set and in-flight
   lists under `moontask`. It compiles and is used by nothing yet.
 
+## What has been run
+
+**Direction B, green.** A real Celery 5.5.3 worker on the `celery` queue consumed
+an envelope this library published and answered it:
+
+```
+published moon-1793966175696 t.double(21)
+celery answered 42
+```
+
+`Handle::get` read the answer back out of `celery-task-meta-<id>`, so the
+publish side, the result side and the id all agree with Celery.
+
+**Direction A, not green yet.** Celery publishes (verified: one envelope on the
+queue, `state right after publishing: PENDING`), the bridge reads it — but the
+first run died on our own parser (`malformed: missing key id`): `consume` was
+still calling `Message::parse` on a Celery envelope. That branch is now written
+(`Message::from_celery` when the broker is in Celery's layout, `@json.parse` of
+the payload first) and the module builds, but the run that would have shown the
+`SUCCESS` meta did not finish inside the harness timeout, so the claim is not
+made.
+
 ## What is not done
 
-- **The two directions have not been run to a green result.** `run_interop.sh`
-  drives them, but the last run hung while tearing the bridge process down (the
-  worker does not exit on `kill`), so neither `celery sees SUCCESS` nor
-  `celery answered 42` has been observed. Until they are, the claim "a Celery
-  worker and a moontask worker can share a queue" is not made.
-- The differential on state sequences and retry intervals: not run.
+- Direction A's green run.
+- The differential on state sequences and retry intervals.
+- Two-way *chains* and chords: the envelope carries `chain` and `chord` fields
+  that this codec writes as empty.
 
-`setup.sh` builds the venv (`celery==5.5.3`, kombu 5.5.4) and starts redis.
+`setup.sh` builds the venv (`celery==5.5.3`, kombu 5.5.4) and starts redis;
+`run_interop.sh` drives both directions, one-shot and bounded.
