@@ -529,36 +529,42 @@ async fn Broker::recover_celery(self : Broker) -> Int64 raise @spec.Refused {
   if !held {
     return 0L
   }
-  let mut moved = 0L
   let ceiling = seconds_of((self.clock)() - self.visibility)
-  let expired = self.client.zrangebyscore_scores(
-    unacked_index(),
-    "-inf",
-    ceiling.to_string(),
-    count=64,
-  ) catch {
-    error => {
-      let _ = self.client.del([mutex]) catch { _ => 0L }
-      raise refused(error)
-    }
-  }
-  for entry in expired {
-    let tag = entry.0
-    let reservation = self.client.hget(unacked(), tag) catch {
-      error => raise refused(error)
-    }
-    match reservation {
-      Some(bytes) => {
-        let text = @utf8.decode_lossy(bytes[:])
-        self.restore(text)
-        moved = moved + 1L
+  // The lock is Celery's and has a deadline of its own, but it is released here
+  // even when a command fails halfway: a restore that gave up should not keep
+  // Celery's own restore waiting.
+  let outcome : Result[Int64, @spec.Refused] = try {
+    let expired = self.client.zrangebyscore_scores(
+      unacked_index(),
+      "-inf",
+      ceiling.to_string(),
+      count=64,
+    )
+    let mut moved = 0L
+    for entry in expired {
+      let tag = entry.0
+      let reservation = self.client.hget(unacked(), tag)
+      match reservation {
+        Some(bytes) => {
+          let text = @utf8.decode_lossy(bytes[:])
+          self.restore(text)
+          moved = moved + 1L
+        }
+        None => ()
       }
-      None => ()
+      self.forget(tag)
     }
-    self.forget(tag)
+    Ok(moved)
+  } catch {
+    // A command that failed mid-restore is a transport problem from here: the
+    // message it was working on stays in the table, and the next run picks it up.
+    error => Err(@spec.Refused::Transport(got=@debug.to_string(error)))
   }
   let _ = self.client.del([mutex]) catch { _ => 0L }
-  moved
+  match outcome {
+    Ok(moved) => moved
+    Err(error) => raise error
+  }
 }
 
 ///|
