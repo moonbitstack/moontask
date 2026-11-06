@@ -399,3 +399,76 @@ footer {
   .top { flex-wrap: wrap; }
   .members li { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* The figure plate.
+ *
+ * The diorama is drawn on its own paper inside the frame: the page gives it a
+ * mat, a hairline and a plate number, and never recolours what is inside. In the
+ * dark theme the mat darkens and the figure stays lit, like a print under a
+ * lamp. */
+.plate { margin: clamp(20px, 4vw, 36px) 0 6px; }
+
+.plate-frame {
+  position: relative;
+  padding: clamp(10px, 1.6vw, 18px);
+  background: color-mix(in srgb, var(--paper-2) 52%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--ink));
+  border-radius: 3px;
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
+    0 20px 44px -30px rgba(40, 30, 16, 0.7);
+}
+
+/* brass corner ticks, the way a plate is pinned down */
+.plate-frame::before,
+.plate-frame::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 1px solid color-mix(in srgb, var(--brass) 70%, transparent);
+  pointer-events: none;
+}
+.plate-frame::before { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+.plate-frame::after { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+
+.plate-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 2px 0 10px;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.plate-no { color: var(--brass); }
+.plate-name { color: var(--ink); }
+.plate-hint { margin-left: auto; letter-spacing: 0.04em; text-transform: none; font-weight: 400; }
+
+.plate iframe {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  height: clamp(430px, 48vw, 620px);
+  border: 0;
+  border-radius: 2px;
+  background: #f2efe7;
+  outline: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  outline-offset: -1px;
+}
+
+.plate figcaption {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+  max-width: 76ch;
+}
+.credit { color: color-mix(in srgb, var(--ink-2) 80%, transparent); }
+.credit a { color: inherit; text-decoration-color: color-mix(in srgb, var(--brass) 60%, transparent); }
+.plate figcaption a { color: var(--ink); text-decoration-color: color-mix(in srgb, var(--brass) 70%, transparent); }
+
+@media (width <= 620px) {
+  .plate iframe { height: 76vh; }
+  .plate-hint { display: none; }
+}

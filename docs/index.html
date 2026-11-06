@@ -24,37 +24,35 @@
   <h1>Work that outlives the request that asked for it.</h1>
   <p class="lede">moontask is a task queue for MoonBit: a worker takes a message off a broker and runs it, a beat sends messages on a rhythm, and a chain, group or chord says what happens after. Brokers and result stores are separate modules, so a queue on one process downloads nothing it does not use.</p>
 
-  <section class="desk" aria-label="A desk with a queue tray, task cards, a clock and a chain">
-    <div class="tray">
-      <div class="card" style="--tilt:-2deg"><span class="seal"></span><span class="title">mail.send</span><span class="meta">queue mail · retries 3</span></div>
-      <div class="card retry" style="--tilt:1.4deg"><span class="seal"></span><span class="title">report.build</span><span class="meta">attempt 2 · backoff 4s</span></div>
-      <div class="card ok" style="--tilt:-0.8deg"><span class="seal"></span><span class="title">thumb.render</span><span class="meta">done · 240 ms</span></div>
-    </div>
-    <div class="desk-row">
-      <div class="chain-line" aria-label="A chain of three task cards tied together">
-        <div class="card"><span class="title">fetch</span><span class="meta">step 1</span></div>
-        <span class="link"></span>
-        <div class="card"><span class="title">resize</span><span class="meta">step 2</span></div>
-        <span class="link"></span>
-        <div class="card"><span class="title">publish</span><span class="meta">step 3</span></div>
+  <figure class="plate">
+    <div class="plate-frame">
+      <div class="plate-head">
+        <span class="plate-no">Fig. 01</span>
+        <span class="plate-name">The desk</span>
+        <span class="plate-hint">drag to turn · press the buttons</span>
       </div>
-      <div class="clock" role="img" aria-label="A clock standing for the beat"></div>
+      <iframe src="./figures/desk.html?embed=1" title="An isometric desk: a wooden in-tray, a punch clock and a line of tags. Turn it, look inside it, and press the buttons." loading="lazy" scrolling="no"></iframe>
     </div>
-    <p class="desk-caption">a tray, some cards, a clock, a string</p>
-  </section>
+    <figcaption>
+      A tray, a clock and a line. A card is dealt into the tray, carried to the press, stamped with a seal, and hung on the line — the same four moves a task makes through this library. <a href="./figures/desk.html">Open the figure on its own&nbsp;↗</a><br>
+      <span class="credit">drawn with <a href="https://april-zhu.com/colorfigures">Colorfigures</a> · turned, labelled and pressed in the browser</span>
+    </figcaption>
+  </figure>
 
-  <div class="grid-3">
+  <h2>How to read it</h2>
+  <p>Three objects, and everything the library does is one of them.</p>
+  <div class="grid-3 legend">
     <div class="tile">
-      <h3>Queues</h3>
-      <p>A worker claims a message, runs it and settles it. A failure inside the retry budget goes back with an <code>eta</code> from the backoff; a success is written to the result store.</p>
+      <h3>The tray &nbsp;·&nbsp; a queue</h3>
+      <p>Cards wait in the order they were dealt. A message sits in a queue until a worker takes it; the front card is the one that goes first, and the leaf springs keep the pile at the lip so you can see how much is waiting.</p>
     </div>
     <div class="tile">
-      <h3>Rhythms</h3>
-      <p>A beat sends tasks every interval, on a cron boundary, or once at an instant. Inside one process, a scheduler runs a job without a broker behind it.</p>
+      <h3>The clock &nbsp;·&nbsp; a worker and a beat</h3>
+      <p>The only thing that moves work. It takes the card, stamps the state on it and counts the punch. A <code>beat</code> is the same hand going round by itself: an interval, a cron line, or one instant.</p>
     </div>
     <div class="tile">
-      <h3>Canvas</h3>
-      <p>A chain carries its own tail, a chord counts its parts, and whichever worker finishes last advances the whole thing. No coordinator is involved.</p>
+      <h3>The line &nbsp;·&nbsp; a chain, a group, a chord</h3>
+      <p>Sealed cards hang in the order the desk finished them. A chain is one card carrying the next; a group is several hung together; a chord is the peg that waits until every card of its set is on the line.</p>
     </div>
   </div>
 

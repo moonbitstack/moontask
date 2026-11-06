@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The desk, a figure of moontask</title></head><body>
+<script src="core.js"></script>
+<script>
+/* The desk: a wooden in-tray, a punch clock and a line of tags.
+   How it works, in the order a card goes through it:
+     a card is dealt into the tray -> the tray's leaf springs lift the pile -> you carry the top card to the press
+     shelf -> the lever's link drives the ram down and the die stamps and seals the card -> the card is hung on the
+     line, which is pulled off at its far end.
+   Each button is one of those steps, and nothing moves along a path the desk does not have.
+
+   Parts, and what holds each one:
+     DESK   board . the tray's four walls . the line's two posts . the ink pad
+     TRAY   floor . back wall . two side walls . a low front lip . two leaf springs . a lifting plate
+     CLOCK  case (rounded, swept) . dial bezel . dial face . ticks . minute hand . hour hand . hub
+            press shelf on two brackets . two guide rods on the shelf . head bracket . ram . die
+            lever on its pin . the link from the lever's end to the ram's top
+     LINE   two posts . a brass cap each . the string . three pegs . the tags hanging from them
+     INSIDE mainspring barrel . great wheel . centre wheel . third wheel . escape wheel . verge and pallets
+            dial shaft . count wheel and the pawl that steps it . bell and its hammer
+   Nothing floats: the ram slides on the two rods, the link joins the lever's end to the ram's top, the shelf's and the
+   head's brackets come off the case, the posts stand in the board, the pegs sit on the string. */
+
+const dW = 136, dD = 88, dBH = 4;                        // the board the desk stands on
+const dTX0 = 4, dTX1 = 40, dTY0 = 52, dTY1 = 86;         // tray footprint
+const dCX0 = 54, dCX1 = 90, dCY0 = 34, dCY1 = 74, dCZ1 = 46;   // clock case
+const dSX = 126, dSY0 = 2, dSY1 = 66, dSZ = 26;          // the line: x, its two ends, its height
+const dPEGS = [20, 36, 52];
+const dCW = 20, dCH = 12;                                // a card: 20 wide, 12 tall
+const dPZ = 12.6;                                        // the card's face on the press shelf
+const dRAM_UP = 23.5, dRAM_DOWN = dPZ + .2;              // the ram's bottom edge
+const dSHZ = 10;                                          // the press shelf's top
+const dCARD_TITLE = ['MAIL.SEND', 'CHART.BUILD', 'THUMB.RENDER', 'EXPORT.CSV', 'SYNC.USERS', 'MAIL.RETRY', 'INDEX.REBUILD'];
+const dLEVER_P = [99, 71, 22.2], dLEVER_L = 13;           // the lever's pin and its length
+
+const dBRASS = { l:'#e9c96a', m:'#c9a23c', d:'#8a6a22' };
+const dSTEEL = { l:'#eef0f0', m:'#c6ccce', d:'#8f989b' };
+const dPAPER = { l:'#fdfaf0', m:'#f2ecdc', d:'#d8d0bb' };
+const dRED   = { l:'#c2452f', m:'#a33824', d:'#6d2416' };
+const dWOOD  = WOOD;
+const dIRON  = { l:'#9aa1a4', m:'#767d80', d:'#4b5154' };
+
+/* ---------- a card, in a plane of its own: centre, width direction, height direction ---------- */
+function dCard(c, U, V, w, h, opt = {}){
+  const un = norm(U), vn = norm(V), N = norm(cross(un, vn));
+  const q = (a, b) => [0,1,2].map(i => c[i] + un[i]*a + vn[i]*b);
+  const corners = [q(-w/2,-h/2), q(w/2,-h/2), q(w/2,h/2), q(-w/2,h/2)];
+  const A = corners.map(p => p.map((v,i) => v - N[i]*.35));
+  const B = corners.map(p => p.map((v,i) => v + N[i]*.35));
+  let s = loft(A, B, n => toneI(n, dPAPER));
+  if (!vis(N)) return s + fill(pd(A), '#efe6d2') + ink(pd(A), .8);
+  s += fill(pd(B), '#fdfaf0') + ink(pd(B), .8);
+  let ruled = '';
+  for (let k = 1; k <= 3; k++){
+    const z = h/2 - 1.4 - k*2.9;
+    ruled += pd([q(-w/2 + 1.8, z).map((v,i) => v + N[i]*.45), q(w/2 - 1.8, z).map((v,i) => v + N[i]*.45)], false);
+  }
+  s += `<path d="${ruled}" fill="none" stroke="#b9ae93" stroke-width=".7"/>`;
+  if (opt.text) s += dCardText(c, un, vn, N, opt.text);
+  if (opt.seal){
+    const ring = (r, dz) => Array.from({length:20}, (_, i) => { const a = i/20*2*Math.PI;
+      return q(w/2 - 4.4 + r*Math.cos(a), -1.1 + r*Math.sin(a)).map((v,k) => v + N[k]*dz); });
+    s += fill(pd(ring(3.2, .5)), '#a33824') + ink(pd(ring(3.2, .58)), .6)
+      + `<path d="${pd(ring(2.1, .64), false)}" fill="none" stroke="#f0d9c8" stroke-width=".5"/>`;
+  }
+  return s;
+}
+function dCardText(c, un, vn, N, text){
+  const o = [0,1,2].map(i => c[i] + vn[i]*(dCH/2 - 3.6) + N[i]*.55);
+  const [X, Y] = P(...o);
+  const M = txM([X, Y], Dv(...un.map(v => -v)), Dv(...vn.map(v => -v)));
+  return `<text transform="${M}" font-size="2.3" fill="${INK}" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-weight="800" letter-spacing=".06em">${text}</text>`;
+}
+/* the three poses a card takes: standing in the tray, lying on the shelf, hanging from a peg */
+const dLean = -10 * Math.PI/180;
+const dTrayU = [0, 1, 0], dTrayV = [-Math.sin(dLean), 0, Math.cos(dLean)];
+const dFlatU = [0, 1, 0], dFlatV = [-1, 0, 0];
+const dHangU = [0, 1, 0], dHangV = [0, 0, 1];
+const dTrayC = i => [35.6 - i*2.8, 72 - i*1.4, 12.4];
+const dPlatenC = [98, 55, dPZ];
+const dHangC = peg => [dSX + .42, dPEGS[peg], dSZ - dCH/2];
+
+/* ---------- the tray: four walls, a low front lip, and leaf springs under a plate ---------- */
+function dTray(st, m){
+  const parts = [], put = (box, svg) => parts.push({ box, svg });
+  const w = 1.6, ft = 5.6, top = 17;
+  put([[dTX0,dTY0,dBH],[dTX1,dTY1,ft]], box(dTX0, dTY0, dBH, dTX1, dTY1, ft, dWOOD, toneI, .9));
+  put([[dTX0,dTY0,ft],[dTX0+w,dTY1,top]], box(dTX0, dTY0, ft, dTX0+w, dTY1, top, dWOOD, toneI, 1));
+  put([[dTX0,dTY0,ft],[dTX1,dTY1,9]], box(dTX1-w, dTY0, ft, dTX1, dTY1, 9, dWOOD, toneI, 1));
+  put([[dTX0,dTY0,ft],[dTX1,dTY0+w,top]], box(dTX0, dTY0, ft, dTX1, dTY0+w, top, dWOOD, toneI, 1));
+  put([[dTX0,dTY1-w,ft],[dTX1,dTY1,top]], box(dTX0, dTY1-w, ft, dTX1, dTY1, top, dWOOD, toneI, 1));
+  const lift = 1.2 + 2.4*Math.min(1, st.queue / 3);
+  for (const y of [dTY0 + 7, dTY1 - 7])
+    put([[dTX0+4,y-1,ft],[dTX1-4,y+1,ft+lift+1]], rod([dTX0 + 5, y, ft + .3], [dTX1 - 5, y, ft + lift], .8, dSTEEL, toneI, .7));
+  put([[dTX0+4,dTY0+4,ft+lift],[dTX1-4,dTY1-4,ft+lift+.6]],
+    box(dTX0 + 4, dTY0 + 4, ft + lift, dTX1 - 4, dTY1 - 4, ft + lift + .6, dWOOD, toneI, .7));
+  put([[dTX1-w,dTY0,8.2],[dTX1,dTY1,9.4]], box(dTX1 - w, dTY0, 8.2, dTX1, dTY1, 9.4, dBRASS, toneI, .5));
+  return byDepth(parts);
+}
+
+/* ---------- the clock's inside, seen through the case ---------- */
+function dGear(x0, x1, cy, cz, r, teeth, m, hub = 1.5){
+  const pts = [];
+  for (let i = 0; i < teeth*2; i++){
+    const a = i/(teeth*2)*2*Math.PI, rr = i % 2 ? r*.78 : r;
+    pts.push([cy + rr*Math.cos(a), cz + rr*Math.sin(a)]);
+  }
+  const A = on(PX(x0), pts), B = on(PX(x1), pts);
+  let s = loft(A, B, n => toneI(n, m));
+  const face = vis([1,0,0]) ? B : vis([-1,0,0]) ? A : null;
+  if (face){
+    const fx = face === B ? x1 + .03 : x0 - .03;
+    s += fill(pd(face), m.l) + `<path d="${pd(face)}" fill="none" stroke="${INK}" stroke-width=".9" stroke-linejoin="round"/>`;
+    s += fill(pd(on(PX(fx), ellUV(cy, cz, hub, hub, 14))), m.d);
+    let sp = '';
+    for (let i = 0; i < 5; i++){ const a = i/5*2*Math.PI;
+      sp += pd([[fx, cy + hub*Math.cos(a), cz + hub*Math.sin(a)], [fx, cy + r*.7*Math.cos(a), cz + r*.7*Math.sin(a)]], false); }
+    s += `<path d="${sp}" fill="none" stroke="${m.d}" stroke-width="1"/>`;
+  }
+  return s;
+}
+function dInside(st){
+  const parts = [], put = (box, svg) => parts.push({ box, svg });
+  const by = 62, bz = 20;
+  put([[71,by-7,bz-7],[80,by+7,bz+7]], cylX(71, 79.6, by, bz, 7.2, dBRASS, toneI, 1)
+    + `<path d="${pd(Array.from({length:24}, (_, i) => { const a = i/24*6.4*Math.PI, r = 1.2 + i*.24;
+        return [79.75, by + r*Math.cos(a), bz + r*Math.sin(a)]; }), false)}" fill="none" stroke="${INK}" stroke-width=".7"/>`
+    + cylX(69.4, 71, by, bz, 1.5, dSTEEL, toneI, .7));
+  put([[79,by-7,bz-7],[84,by+7,bz+7]], dGear(79.6, 82.4, by, bz, 6.6, 15, dBRASS));
+  put([[82,64,24],[87,74,34]], dGear(83, 85.6, 68, 28, 4.8, 12, dBRASS) + rod([84.3, 68, 28], [84.3, by, bz], .6, dSTEEL, toneI, .5));
+  put([[79,70,20],[84,80,30]], dGear(80, 82, 74, 24, 3.7, 10, dBRASS) + rod([81, 74, 24], [81, 68, 28], .5, dSTEEL, toneI, .5));
+  const ex = 84.4, ey = 76, ez = 33;
+  put([[ex-.7,ey-4,ez-4],[ex+.7,ey+4,ez+4]], dGear(ex, ex + 1.2, ey, ez, 3.2, 9, dSTEEL)
+    + rod([ex + .6, ey, ez], [ex + .9, 68, ez + 2], .45, dSTEEL, toneI, .45)
+    + `<path d="${pd([[ex + 1, 68, ez + 2], [ex + 1, 65.4, ez + 3.6]], false)}" fill="none" stroke="${INK}" stroke-width="1.3"/>`);
+  put([[84,64,26],[96,70,38]], rod([84.3, 68, 28], [94.6, 66, 33.6], .7, dSTEEL, toneI, .6)
+    + cylX(93, 95, 66, 34, 1.4, dBRASS, toneI, .5));
+  put([[84,70,10],[92,80,18]], box(84, 72, 11, 90, 80, 17, dBRASS, toneI, .8)
+    + `<path d="${pd([[90.1,73,12],[90.1,73,16],[90.1,75,16],[90.1,75,12],[90.1,77,12],[90.1,77,16]], false)}" fill="none" stroke="${INK}" stroke-width=".7"/>`);
+  put([[89,70,16],[96,78,26]], rod([90, 76, 17], [94.6, 78, 21], .45, dSTEEL, toneI, .45)
+    + `<path d="${pd([[94.6,78,21],[96.4,78,22],[96.4,78,18.6]], false)}" fill="none" stroke="${INK}" stroke-width="1.1"/>`);
+  put([[68,50,34],[78,60,44]], loft(on(PZ(34), ellUV(73, 55, 4.8, 4.8, 18)), on(PZ(39), ellUV(73, 55, 1.3, 1.3, 18)), n => toneI(n, dBRASS))
+    + fill(pd(on(PZ(34), ellUV(73, 55, 4.8, 4.8, 18))), dBRASS.d) + rod([73, 55, 39], [73, 55, 43.6], .45, dSTEEL, toneI, .4));
+  put([[78,56,36],[86,62,42]], rod([84, 59, 36.6], [78.4, 57.4, 38.4], .45, dSTEEL, toneI, .45)
+    + fill(pd(on(PX(78.2), ellUV(57.4, 38.4, 1, 1, 10))), dSTEEL.d));
+  return { svg: byDepth(parts), labels: [
+    { at: [70, by, bz + 5], text: 'MAINSPRING', on: st.lever > .3 },
+    { at: [81, by, bz], text: 'GREAT WHEEL', on: st.lever > .3 },
+    { at: [84.3, 68, 28], text: 'CENTRE WHEEL', on: false },
+    { at: [ex, ey, ez], text: 'ESCAPEMENT', on: false },
+    { at: [93, 66, 35], text: 'DIAL SHAFT', on: false },
+    { at: [87, 76, 14], text: 'COUNT WHEEL', on: st.lever > .6 },
+    { at: [73, 55, 37], text: 'BELL', on: st.lever > .75 },
+  ]};
+}
+
+/* ---------- the clock: case, dial, and the press that hangs off its front ---------- */
+const dOUT = rrUV(dCY0, dBH, dCY1, dCZ1, 4);
+const dDY = 56, dDZ = 36, dDR = 6;
+function dClock(st, m){
+  const parts = [], put = (box, svg) => parts.push({ box, svg });
+  const FRONT = facing([1,0,0]), BACK = facing([-1,0,0]);
+  const k = ease(st.xr || 0);
+  let shell = '';
+  if (FRONT) shell += fill(pd(on(PX(dCX1), dOUT)), tone([1,0,0], m));
+  if (BACK) shell += fill(pd(on(PX(dCX0), dOUT)), tone([-1,0,0], m));
+  shell += extrude(dOUT, dCX0, dCX1, m);
+  if (FRONT) shell += ink(pd(on(PX(dCX1), dOUT)), 2.2);
+  if (BACK) shell += ink(pd(on(PX(dCX0), dOUT)), 2.2);
+  shell += hullInk([...on(PX(dCX0), dOUT), ...on(PX(dCX1), dOUT)], 2.8);
+  if (FRONT) shell += tx(dCX1 + .35, dCY0 + 6.5, 12, 'MOONTASK', 2.2, INK, 800);
+  if (k > 0) shell = xrGhost(shell, '', k, dOUT, dCX0, dCX1, m);
+  put([[dCX0,dCY0,dBH],[dCX1,dCY1,dCZ1]], shell + `<g opacity="${f(k)}">${dInside(st).svg}</g>`);
+  put([[dCX0-2,dCY0-2,dBH],[dCX1+2,dCY1+2,8]],
+    box(dCX0 - 2, dCY0 - 2, dBH, dCX1, dCY1 + 2, 8, m, tone, 1));
+  put([[dCX0+2,dCY0+2,44],[dCX1-2,dCY1-2,47.6]],
+    box(dCX0 + 2, dCY0 + 3, 44, dCX1 - 3, dCY1 - 2, 47.6, m, tone, 1));
+
+  // ---- the dial ----
+  let dial = cylX(dCX1, dCX1 + 1.6, dDY, dDZ, dDR + 1.3, dBRASS, tone, 1.1, 26)
+    + cylX(dCX1 + 1.6, dCX1 + 2, dDY, dDZ, dDR, dPAPER, toneI, 1, 26);
+  let ticks = '';
+  for (let i = 0; i < 12; i++){ const a = i/12*2*Math.PI, w = i % 3 ? .15 : .36;
+    ticks += pd([[dCX1+2.02, dDY + (dDR-1.3)*Math.cos(a) - w, dDZ + (dDR-1.3)*Math.sin(a)],
+                 [dCX1+2.02, dDY + (dDR-.3)*Math.cos(a) - w, dDZ + (dDR-.3)*Math.sin(a)],
+                 [dCX1+2.02, dDY + (dDR-.3)*Math.cos(a) + w, dDZ + (dDR-.3)*Math.sin(a)],
+                 [dCX1+2.02, dDY + (dDR-1.3)*Math.cos(a) + w, dDZ + (dDR-1.3)*Math.sin(a)]], true); }
+  dial += fill(ticks, INK);
+  if (FRONT){
+    const hand = (a, len, w) => `<path d="${pd([[dCX1+2.1, dDY, dDZ], [dCX1+2.1, dDY + len*Math.sin(a), dDZ + len*Math.cos(a)]], false)}" fill="none" stroke="${INK}" stroke-width="${w}" stroke-linecap="round"/>`;
+    dial += hand(st.hourA, dDR*.46, 1.4) + hand(st.minA, dDR*.72, .85)
+      + fill(pd(on(PX(dCX1+2.14), ellUV(dDY, dDZ, .85, .85, 10))), INK);
+  }
+  put([[dCX1,dCY0,dBH],[dCX1+2.2,dCY1,dCZ1]], dial);
+
+  // ---- the press: a shelf on two brackets, two guide rods, a head, the ram and its lever ----
+  const sz = dSHZ, sh = 2.2;
+  put([[dCX1,44,sz],[106,68,sz+sh]],
+    box(dCX1, 44, sz, 106, 68, sz + sh, dIRON, tone, .9)
+    + ink(pd([[106.06,44.6,sz],[106.06,67.4,sz],[106.06,67.4,sz+sh],[106.06,44.6,sz+sh]]), .5));
+  for (const y of [46, 64]) put([[dCX1,y-1.4,dBH],[dCX1+4,y+1.4,sz]],
+    box(dCX1, y - 1.4, dBH, dCX1 + 4, y + 1.4, sz, dIRON, toneI, .7));
+  for (const y of [46, 66]) put([[101,y-.6,sz],[103,y+.6,30]],
+    rod([102, y, sz + sh], [102, y, 30], .6, dIRON, toneI, .6));
+  put([[dCX1,66,18],[104,74,22]],
+    box(dCX1, 66, 18, 104, 74, 22, dIRON, tone, .8)
+    + fill(pd(on(PX(104.06), ellUV(dLEVER_P[1], dLEVER_P[2], 1.1, 1.1, 12))), dSTEEL.d));
+  const ramZ = dRAM_UP - (dRAM_UP - dRAM_DOWN) * st.ram;
+  put([[96,48,ramZ],[104,64,ramZ+5]],
+    box(96, 48, ramZ, 104, 64, ramZ + 5, dIRON, tone, 1)
+    + box(97, 49, ramZ - 1.2, 103, 63, ramZ, dRED, tone, .8));
+  const a = (st.lever || 0) * 1.72;
+  const le = [dLEVER_P[0] + dLEVER_L*Math.sin(a), dLEVER_P[1], dLEVER_P[2] + dLEVER_L*Math.cos(a)];
+  put([[Math.min(le[0],dLEVER_P[0])-1,69,Math.min(le[2],dLEVER_P[2])-1],[Math.max(le[0],dLEVER_P[0])+1,73,Math.max(le[2],dLEVER_P[2])+1]],
+    rod(dLEVER_P, le, 1.2, dBRASS, tone, 1)
+    + fill(pd(Array.from({length:14}, (_, i) => { const t = i/14*2*Math.PI;
+        return [le[0] + 1.7*Math.cos(t)*Math.sin(a), le[1] + 1.7*Math.sin(t), le[2] + 1.7*Math.cos(t)*Math.cos(a)]; })), dBRASS.l));
+  put([[Math.min(le[0],100)-1,Math.min(le[1],56)-1,Math.min(le[2],ramZ+5)-1],[Math.max(le[0],100)+1,Math.max(le[1],56)+1,Math.max(le[2],ramZ+5)+1]],
+    rod(le, [100, 56, ramZ + 5], .55, dSTEEL, toneI, .55));
+  if (st.platen)
+    put([[91,44,dPZ-1],[105,68,dPZ+1]],
+      dCard(dPlatenC, dFlatU, dFlatV, dCW, dCH, { seal: st.platen.sealed, text: st.platen.sealed ? '' : dTitle(st.platen.id) }));
+  return byDepth(parts);
+}
+
+/* ---------- the line of tags ---------- */
+function dLine(st){
+  const parts = [], put = (box, svg) => parts.push({ box, svg });
+  for (const y of [dSY0, dSY1]) put([[dSX-1.5,y-1.5,dBH],[dSX+1.5,y+1.5,dSZ+2]],
+    cyl(dSX, y, dBH, dSZ + .8, 1.2, dBRASS, tone, 1)
+    + cyl(dSX, y, dSZ + .8, dSZ + 1.8, 1.7, dBRASS, tone, .9, 14));
+  const sag = [[dSX,dSY0,dSZ+1.2],[dSX,dSY0+16,dSZ+.7],[dSX,dSY0+32,dSZ+.7],[dSX,dSY0+48,dSZ+.8],[dSX,dSY1,dSZ+1.4]];
+  put([[dSX-.4,dSY0,dSZ],[dSX+.4,dSY1,dSZ+2]],
+    `<path d="${pd(sag, false)}" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+    + `<path d="${pd(sag, false)}" fill="none" stroke="#f3e6c8" stroke-width=".95" stroke-linecap="round" stroke-linejoin="round"/>`);
+  dPEGS.forEach(y => put([[dSX-1.1,y-1.1,dSZ-1.6],[dSX+1.1,y+1.1,dSZ+1]],
+    box(dSX - .55, y - 1, dSZ - 1.4, dSX + .55, y + 1, dSZ + .5, dBRASS, tone, .8)
+    + `<path d="${pd([[dSX, y - .5, dSZ + .5], [dSX, y - .5, dSZ + 1.5], [dSX, y + .5, dSZ + 1.5], [dSX, y + .5, dSZ + .5]], false)}" fill="none" stroke="${INK}" stroke-width=".9"/>`
+    + box(dSX - .8, y - .8, dSZ - 2.4, dSX + .8, y + .8, dSZ - 1.4, dSTEEL, toneI, .5)));
+  return byDepth(parts);
+}
+
+/* ---------- the card on its way: tray to shelf, or shelf to the line ---------- */
+function dFlying(st){
+  if (!st.moving) return { svg: '', box: null };
+  const p = ease(st.moving.t), kind = st.moving.kind;
+  const lerp = (A, B, t) => [0,1,2].map(i => A[i] + (B[i] - A[i]) * t);
+  const lv = (A, B, t) => { const v = lerp(A, B, t), l = Math.hypot(...v) || 1; return v.map(x => x/l); };
+  const bez = (A, M, B, t) => { const u = 1 - t; return [0,1,2].map(i => u*u*A[i] + 2*u*t*M[i] + t*t*B[i]); };
+  let c, U, V;
+  if (kind === 'carry'){
+    c = bez(dTrayC(0), [70, 70, 40], dPlatenC, p);
+    U = dTrayU; V = lv(dTrayV, dFlatV, p);
+  } else {
+    c = bez(dPlatenC, [112, 56, 38], dHangC(st.moving.peg), p);
+    U = dHangU; V = lv(dFlatV, dHangV, p);
+  }
+  return { svg: dCard(c, U, V, dCW, dCH, { seal: st.moving.sealed, text: st.moving.sealed ? '' : st.moving.title }),
+    box: [[c[0]-11,c[1]-11,c[2]-7],[c[0]+11,c[1]+11,c[2]+7]] };
+}
+
+/* ---------- the scene ---------- */
+function scene(st, m){
+  let s = board(0, 0, dW, dD, dBH, 6, dWOOD);
+  const shadow = pts => castShadow(pts, dBH, boardTop(0, 0, dW, dD, dBH, 6));
+  s += shadow([[dTX0,dTY0,17],[dTX1,dTY0,17],[dTX1,dTY1,17],[dTX0,dTY1,17]]);
+  s += shadow([[dCX0,dCY0,dCZ1],[dCX1,dCY0,dCZ1],[dCX1,dCY1,dCZ1],[dCX0,dCY1,dCZ1],
+               [102,44,dSHZ],[102,68,dSHZ],[98,58,dRAM_UP],[dSX,dSY0,dSZ],[dSX,dSY1,dSZ]]);
+
+  const parts = [
+    { at: [22, 70, 10], box: [[dTX0,dTY0,dBH],[dTX1,dTY1,20]], svg: act('tray', dTray(st, m)) },
+    { at: [70, 52, 24], box: [[dCX0,dCY0,dBH],[106,dCY1,dCZ1]], svg: act('press', dClock(st, m)) },
+    { at: [dSX, 32, 18], box: [[dSX-2,dSY0,dBH],[dSX+2,dSY1,dSZ+2]], svg: dLine(st) },
+  ];
+  for (let i = Math.min(st.queue, 3) - 1; i >= 0; i--){
+    const c = dTrayC(i);
+    parts.push({ at: c, box: [[c[0]-11,c[1]-11,c[2]-7],[c[0]+11,c[1]+11,c[2]+7]],
+      svg: dCard(c, dTrayU, dTrayV, dCW, dCH, { text: dTitle(dNext - 1 - i) }) });
+  }
+  st.hung.forEach((card, i) => {
+    const c = dHangC(i);
+    parts.push({ at: c, box: [[c[0]-11,c[1]-11,c[2]-7],[c[0]+11,c[1]+11,c[2]+7]],
+      svg: act('tag', dCard(c, dHangU, dHangV, dCW, dCH, { seal: true, text: dTitle(card.id) })) });
+  });
+  for (let i = 0; i < 3; i++){
+    const c = [21 + i*.8, 30 - i*.7, 9.6 + i*.66];
+    parts.push({ at: c, box: [[c[0]-7,c[1]-11,c[2]-.5],[c[0]+7,c[1]+11,c[2]+.5]],
+      svg: dCard(c, dTrayU, dTrayV, dCW, dCH, {}) });
+  }
+  const fly = dFlying(st);
+  if (fly.svg) parts.push({ at: fly.box[0], box: fly.box, svg: fly.svg });
+  s += byDepth(parts);
+
+  const k = ease(st.xr || 0);
+  s += k > .6
+    ? xrCallouts(dInside(st).labels, [dCX0, 102, dCY0, 72, dBH, dCZ1])
+    : xrCallouts([
+      { at: [dTX1 - 1, 70, 13], text: 'IN-TRAY', on: st.queue > 0 },
+      { at: [dCX1 + 3, dDY + 2, dDZ + 3], text: 'DIAL', on: false },
+      { at: [101, 66, dSHZ], text: 'PRESS SHELF', on: !!st.platen },
+      { at: [dLEVER_P[0] + 1, 70, dLEVER_P[2] + 9], text: 'LEVER', on: st.lever > .15 },
+      { at: [98, 49, dRAM_UP + 2], text: 'RAM', on: st.ram > .05 },
+      { at: [dSX, dPEGS[1], dSZ - 3], text: 'THE LINE', on: false },
+    ], [dTX0, 104, dCY0, dTY1, dBH, dCZ1]);
+  return s;
+}
+
+/* ---------- the run from one end of the desk to the other ---------- */
+let ui = null, dLoop = false, dNext = 2;
+const dTitle = id => dCARD_TITLE[(id - 1) % dCARD_TITLE.length];
+function dStep(st, now){
+  const el = now - st.t0;
+  if (st.phase === 'carry'){
+    const t = Math.min(1, el / 780);
+    st.moving = { kind: 'carry', t, title: dTitle(st.platen.id), sealed: false };
+    if (t >= 1){ st.phase = 'press'; st.t0 = now; st.moving = null; }
+  } else if (st.phase === 'press'){
+    const t = Math.min(1, el / 1500);
+    st.lever = t < .42 ? ease(t / .42) : t < .56 ? 1 : 1 - ease((t - .56) / .44);
+    st.ram = t < .36 ? 0 : t < .48 ? ease((t - .36) / .12) : t < .6 ? 1 : 1 - ease((t - .6) / .4);
+    if (t >= .5 && !st.platen.sealed){ st.platen.sealed = true; st.sealed++; st.minA += .9; st.hourA += .12; }
+    if (t >= 1){
+      st.lever = 0; st.ram = 0;
+      if (st.hung.length >= dPEGS.length){ st.phase = 'idle'; ui.flash('the line is full — let one go'); }
+      else {
+        st.phase = 'hang'; st.t0 = now;
+        st.hung.push({ id: st.platen.id });
+        st.moving = { kind: 'hang', t: 0, peg: st.hung.length - 1, title: '', sealed: true };
+      }
+    }
+  } else if (st.phase === 'hang'){
+    const t = Math.min(1, el / 720);
+    st.moving = { kind: 'hang', t, peg: st.hung.length - 1, title: '', sealed: true };
+    if (t >= 1){ st.phase = 'idle'; st.platen = null; st.moving = null; }
+  }
+  return st.phase !== 'idle';
+}
+function dRun(){
+  if (dLoop) return; dLoop = true;
+  ui.animate(() => { const busy = dStep(ui.st, performance.now()); if (!busy) dLoop = false; return busy; });
+}
+function dSend(st, u){
+  if (st.queue >= 4) return u.flash('the tray is full — punch one through');
+  st.queue++; dNext++; u.render();
+}
+function dPunch(st, u){
+  if (st.phase !== 'idle') return u.flash('the press is busy');
+  // a card already waiting on the shelf is the one under the die
+  if (st.platen && !st.platen.sealed){ st.phase = 'press'; st.t0 = performance.now(); dRun(); return; }
+  if (st.queue <= 0) return u.flash('the tray is empty — send a card');
+  st.queue--; st.platen = { id: dNext, sealed: false }; dNext++;
+  st.phase = 'carry'; st.t0 = performance.now(); dRun();
+}
+function dLet(st, u){
+  if (st.phase !== 'idle') return u.flash('wait for the lever');
+  if (!st.hung.length) return u.flash('nothing is hanging yet');
+  st.hung.shift(); u.render();
+}
+
+ui = mountFigure({
+  fig: '01', turn: 'full', title: 'The desk', palette: 'mint',
+  size: [dW, dD, 52], center: [dW/2, dD/2],
+  state: { queue: 2, platen: { id: 1, sealed: false }, hung: [], sealed: 0, lever: 0, ram: 0, phase: 'idle', t0: 0, moving: null, minA: .35, hourA: 2.1, xr: 0, xrT: 0 },
+  scene,
+  readout: st => !st.queue && !st.platen && !st.hung.length ? 'the desk is clear'
+    : `${st.queue} in the tray · ${st.hung.length} on the line`,
+  stats: st => [ { label: 'Waiting', value: st.queue }, { label: 'Sealed', value: st.sealed, small: true } ],
+  buttons: [
+    { label: 'Send a card', onClick: dSend },
+    { label: 'Punch the clock', onClick: dPunch },
+    { label: 'Let one go', onClick: dLet },
+  ],
+  acts: {
+    tray: (st, el, u) => dSend(st, u),
+    press: (st, el, u) => dPunch(st, u),
+    tag: (st, el, u) => dLet(st, u),
+  },
+  params: (st, q) => {
+    if (q.get('q') != null) st.queue = +q.get('q');
+    if (q.get('sealed') != null) st.sealed = +q.get('sealed');
+    if (q.get('ram') != null){ st.ram = +q.get('ram'); st.lever = +q.get('lever') || 0; }
+  },
+});
+// the See-through and Labels switches; the caption under the figure says what the inside is
+// In the site's plate the page around the figure carries the title and the
+// credit, so the figure drops its own and gives the drawing the room.
+if (new URLSearchParams(location.search).get('embed') === '1'){
+  const dHead = document.querySelector('body > header'), dFoot = document.querySelector('.made-with');
+  if (dHead) dHead.remove();
+  if (dFoot) dFoot.remove();
+  document.body.style.padding = '8px 8px 2px';
+}
+xrMount(() => ui, st => st.xr > .5
+  ? 'Inside: a mainspring drives the wheels, the escape wheel ticks the hands round, and the lever\'s shaft steps a count wheel each time a card is punched.'
+  : '');
+</script>
+</body></html>
