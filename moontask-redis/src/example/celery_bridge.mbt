@@ -16,7 +16,7 @@ fn now() -> Int64 {
 }
 
 ///|
-async fn connect() -> @socket.Connection raise {
+async fn connect() -> @socket.Connection {
   @socket.Connection::connect(@moonredis.ClientOptions::at("127.0.0.1", 6379))
 }
 
@@ -32,17 +32,21 @@ async fn main {
     counter=broker.store(),
     clock=now,
   )
-  let double = app.task("t.double", fn(value : Int, _) { value * 2 })
-  let add = app.task("t.add", fn(values : Array[Int], _) {
-    let mut sum = 0
-    for value in values {
-      sum = sum + value
-    }
-    sum
-  })
+  let double = app.task("t.double", fn(value : Int32, _) { value * 2 })
+  ignore(
+    app.task("t.add", fn(values : Array[Int32], _) {
+      let mut sum = 0
+      for value in values {
+        sum = sum + value
+      }
+      sum
+    }),
+  )
   if mode == "publish" {
     let value = if argv.length() > 2 {
-      @string.parse_int(argv[2]) catch { _ => 21 }
+      @string.parse_int(argv[2]) catch {
+        _ => 21
+      }
     } else {
       21
     }

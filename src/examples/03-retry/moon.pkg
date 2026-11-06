@@ -3,11 +3,10 @@ import {
   "moonbitstack/moontask/wait",
   "moonbitlang/async",
   "moonbitlang/core/env",
-  "moonbitlang/core/json",
-  "moonbitstack/moondate",
 }
 
 // A real clock, and a wait: native only.
+
 supported_targets = "native"
 
 pkgtype(kind: "executable")

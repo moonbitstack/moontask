@@ -21,7 +21,7 @@ pub struct Keys {
 
 ///|
 fn Keys::new(prefix : String) -> Keys {
-  { prefix, celery: false }
+  { prefix, celery: false, }
 }
 
 ///|
@@ -29,7 +29,7 @@ fn Keys::new(prefix : String) -> Keys {
 /// named after it, and the delay set and in-flight list are ours, under
 /// `moontask`.
 fn Keys::celery() -> Keys {
-  { prefix: "moontask", celery: true }
+  { prefix: "moontask", celery: true, }
 }
 
 ///|
@@ -46,6 +46,7 @@ fn Keys::ready(self : Keys, queue : String) -> String {
     "\{self.prefix}:q:\{queue}"
   }
 }
+
 ///|
 /// The sorted set of a queue's messages waiting for their eta.
 fn Keys::delayed(self : Keys, queue : String) -> String {
@@ -82,6 +83,7 @@ fn Keys::result(self : Keys, id : String) -> String {
     "\{self.prefix}:r:\{id}"
   }
 }
+
 ///|
 /// The key a chord counts its parts under.
 fn Keys::chord(self : Keys, key : String) -> String {

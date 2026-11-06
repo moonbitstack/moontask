@@ -30,10 +30,7 @@ pub fn Message::to_celery(self : Message) -> Json {
     "errbacks": Json::null(),
     "chain": match self.chain {
       [] => Json::null()
-      items =>
-        Json::array(
-          items.map(fn(next) { next.to_celery_body() }),
-        )
+      items => Json::array(items.map(fn(next) { next.to_celery_body() }))
     },
     "chord": Json::null(),
   })
@@ -108,7 +105,10 @@ fn Message::to_celery_body(self : Message) -> Json {
 ///
 /// `queue` is what the broker knows and the envelope names, so a message read
 /// off a list is told which list it came from.
-pub fn Message::from_celery(json : Json, queue~ : String) -> Message raise Refused {
+pub fn Message::from_celery(
+  json : Json,
+  queue~ : String,
+) -> Message raise Refused {
   let fields = match json {
     Object(fields) => fields
     _ => raise Refused::Malformed(got="an envelope is an object")
@@ -190,9 +190,7 @@ pub fn Message::from_celery(json : Json, queue~ : String) -> Message raise Refus
 /// An instant from the protocol's text, or zero when it does not parse: a
 /// worker that finished the work should not be failed by a stamp it cannot read.
 fn instant_of(text : String) -> Int64 {
-  let moment = @moondate.parse(text) catch {
-    _ => return 0L
-  }
+  let moment = @moondate.parse(text) catch { _ => return 0L }
   match moment.timestamp() {
     Some(seconds) => (seconds * 1000.0).round().to_int64()
     None => 0L
@@ -255,5 +253,5 @@ pub fn Outcome::from_celery(json : Json) -> Outcome raise Refused {
     Some(String(text)) => instant_of(text)
     _ => 0L
   }
-  { state, result, error, retries: 0, at }
+  { state, result, error, retries: 0, at, }
 }

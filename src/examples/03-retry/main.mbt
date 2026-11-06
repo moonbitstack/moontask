@@ -13,7 +13,12 @@ fn clock_ms() -> Int64 {
 ///|
 async fn main {
   let broker = @moontask.MemoryBroker::new(clock=clock_ms)
-  let app = @moontask.App::new(broker, backend=broker, counter=broker, clock=clock_ms)
+  let app = @moontask.App::new(
+    broker,
+    backend=broker,
+    counter=broker,
+    clock=clock_ms,
+  )
   let seen = []
   let flaky = app.task(
     "t.flaky",
@@ -28,7 +33,11 @@ async fn main {
       retries: 2,
       // 250 ms, doubling: the wait before the second attempt is 500 ms and
       // before the third 1000 ms, which is what the Celery ladder asks for.
-      backoff: @moontask.Backoff::Exponential(base=250L, cap=10000L, jitter=false),
+      backoff: @moontask.Backoff::Exponential(
+        base=250L,
+        cap=10000L,
+        jitter=false,
+      ),
     },
   )
   let worker = app.worker(concurrency=1)

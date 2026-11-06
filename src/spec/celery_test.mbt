@@ -73,7 +73,11 @@ test "a failure reads back as failure with its message" {
 
 ///|
 test "a success reads back with its value" {
-  let outcome = @spec.outcome_succeeded(Json::string("done"), 0, 1_700_000_000_000L)
+  let outcome = @spec.outcome_succeeded(
+    Json::string("done"),
+    0,
+    1_700_000_000_000L,
+  )
   let back = @spec.Outcome::from_celery(outcome.to_celery("run-9"))
   assert_eq(back.state, @spec.Succeeded)
   assert_eq(back.result, Some(Json::string("done")))

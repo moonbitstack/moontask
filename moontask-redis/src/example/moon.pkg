@@ -1,13 +1,11 @@
 import {
   "moonbitstack/moontask",
-  "moonbitstack/moontask/spec",
   "moonbitstack/moontask/wait",
   "moonbitstack/moontask-redis/redis",
   "moonbitstack/moonredis",
   "moonbitstack/moonredis/socket",
   "moonbitlang/async",
   "moonbitlang/core/env",
-  "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
 
