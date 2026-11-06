@@ -332,6 +332,10 @@
 <h2>moontask/spec</h2>
 <h3>Functions and values</h3>
 <article class="api-entry">
+<pre class="sig">pub fn celery_result_key(String) -&gt; String</pre>
+<div class="doc"><p>| The key Celery&#x27;s result backend stores a run under.</p></div>
+</article>
+<article class="api-entry">
 <pre class="sig">pub fn outcome_failed(String, Int32, Int64) -&gt; Outcome</pre>
 <div class="doc"><p>| The outcome of a run that raised <code>error</code> on attempt <code>retries</code>.</p></div>
 </article>
@@ -393,6 +397,11 @@
 <pre class="sig">pub fn Message::equal(Self, Self) -&gt; Bool</pre>
 </article>
 <article class="api-entry">
+<pre class="sig">pub fn Message::from_celery(@json.Json, queue~ : String) -&gt; Self raise Refused</pre>
+<div class="doc"><p>| Read a Celery envelope back into a message.</p>
+<p><code>queue</code> is what the broker knows and the envelope names, so a message read off a list is told which list it came from.</p></div>
+</article>
+<article class="api-entry">
 <pre class="sig">pub fn Message::from_json(@json.Json, @json.JsonPath) -&gt; Self raise @json.JsonDecodeError</pre>
 </article>
 <article class="api-entry">
@@ -419,6 +428,10 @@
 <div class="doc"><p>| The JSON text of a message, which is what a broker stores.</p></div>
 </article>
 <article class="api-entry">
+<pre class="sig">pub fn Message::to_celery(Self) -&gt; @json.Json</pre>
+<div class="doc"><p>| The message as Celery&#x27;s envelope, ready to be pushed on a queue.</p></div>
+</article>
+<article class="api-entry">
 <pre class="sig">pub fn Message::to_json(Self) -&gt; @json.Json</pre>
 </article>
 <article class="api-entry">
@@ -434,10 +447,18 @@
 <pre class="sig">pub fn Outcome::equal(Self, Self) -&gt; Bool</pre>
 </article>
 <article class="api-entry">
+<pre class="sig">pub fn Outcome::from_celery(@json.Json) -&gt; Self raise Refused</pre>
+<div class="doc"><p>| An outcome read back from Celery&#x27;s result backend.</p></div>
+</article>
+<article class="api-entry">
 <pre class="sig">pub fn Outcome::from_json(@json.Json, @json.JsonPath) -&gt; Self raise @json.JsonDecodeError</pre>
 </article>
 <article class="api-entry">
 <pre class="sig">pub fn Outcome::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Outcome::to_celery(Self, String) -&gt; @json.Json</pre>
+<div class="doc"><p>| An outcome as Celery&#x27;s result backend writes it, so a Celery client waiting on <code>AsyncResult</code> reads what a worker here finished.</p></div>
 </article>
 <article class="api-entry">
 <pre class="sig">pub fn Outcome::to_json(Self) -&gt; @json.Json</pre>
