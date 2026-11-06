@@ -38,9 +38,9 @@ The body decodes to `[[21], {}, {callbacks, errbacks, chain, chord}]`.
   after the queue, with no prefix — while keeping its delay set and in-flight
   lists under `moontask`. It compiles and is used by nothing yet.
 
-## What has been run
+## The two directions
 
-Both directions, against Celery 5.5.3 and kombu 5.5.4, one redis, `run_interop.sh`:
+Both against Celery 5.5.3 and kombu 5.5.4, one redis, `bash run_interop.sh`:
 
 ```
 == A: Celery publishes, this library runs it
@@ -57,22 +57,47 @@ celery answered 42
 
 A is the hard direction: `AsyncResult("cel-A").get()` returned 42 for a run this
 library executed — the queue was Celery's list, the bytes were Celery's envelope,
-the claim was this library's, and the answer was written where Celery looks.
-B runs the other way: a real Celery worker consumed our envelope and wrote the
+the claim was this library's, and the answer was written where Celery looks. B
+runs the other way: a real Celery worker consumed our envelope and wrote the
 answer, and `Handle::get` read it back.
+
+## The differential: one ladder, run twice
+
+The same task — fail, wait, fail, wait, succeed — under the same policy on both
+sides: two retries, a wait that doubles from half a second. Each attempt records
+the millisecond it started.
+
+```sh
+moon run src/examples/03-retry > moontask-ladder.jsonl
+python retry_ladder.py          > celery-ladder.jsonl     # starts its own worker
+python compare_ladder.py moontask-ladder.jsonl celery-ladder.jsonl
+```
+
+```
+           attempts    state  waits (ms)
+moontask          3  SUCCESS  513, 1001
+celery            3  SUCCESS  509, 1006
+
+attempts equal: yes · waits within 120 ms: yes
+  wait 1: moontask 513 ms · celery 509 ms · difference 4 ms
+  wait 2: moontask 1001 ms · celery 1006 ms · difference 5 ms
+```
+
+Three attempts, the same final state, and a wait that differs by 4 and 5 ms —
+which is the cost of measuring a timer from inside the task, not a different
+policy. The transcripts are committed as `moontask-ladder.jsonl` and
+`celery-ladder.jsonl`.
 
 ## What is not done
 
-- The differential on state sequences and retry intervals. What is proven is that
-  one message crosses in each direction and produces the same value on both
-  sides; a task that fails, retries on a backoff and settles has not been
-  compared run for run.
 - Chains and chords across the boundary: the envelope has `chain` and `chord`
   fields, and this codec writes them empty.
 - A Celery worker's reservation lives in one `unacked` hash for every consumer;
-  this broker keeps its own in-flight lists. Two of our workers share a queue
+  this broker keeps its own in-flight lists. Two of our workers can share a queue
   with a Celery worker, but a Celery worker that dies leaves its reservation
   where our `recover` does not look.
+- ETA messages: Celery's worker holds a delayed message in memory; ours parks it
+  in a sorted set of its own, outside the list Celery reads.
 
 `setup.sh` builds the venv (`celery==5.5.3`, kombu 5.5.4) and starts redis.
 `celery_side.py` is a real Celery app with the same two task names.

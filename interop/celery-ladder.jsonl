@@ -1,0 +1,4 @@
+{"side": "celery", "state": "SUCCESS", "attempts": 3}
+{"side": "celery", "attempt": 1, "at": 1793973499734}
+{"side": "celery", "attempt": 2, "at": 1793973500243}
+{"side": "celery", "attempt": 3, "at": 1793973501249}
