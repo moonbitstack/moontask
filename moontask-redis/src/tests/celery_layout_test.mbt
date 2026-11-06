@@ -98,6 +98,22 @@ async test "a claim is written where Celery keeps its reservations" {
     }
     _ => fail("a reservation is a triple")
   }
+  // The report reads the same table: one message held, none ready. Other tests
+  // leave queues behind in the same server, so the report is searched rather
+  // than taken from the front.
+  let mut reported = None
+  for info in broker.queues() {
+    if info.name == queue {
+      reported = Some(info)
+    }
+  }
+  match reported {
+    Some(info) => {
+      assert_eq(info.ready, 0L)
+      assert_eq(info.unacked, 1L)
+    }
+    None => fail("the queue is in the report")
+  }
   broker.ack(delivery)
   assert_eq(probe.hget("unacked", delivery.receipt) catch { _ => None }, None)
 }

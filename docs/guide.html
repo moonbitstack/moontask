@@ -113,6 +113,8 @@ let broker = @redis.Broker::new(conn, clock=now, consumer="worker-7")
 let app = @moontask.App::new(broker, backend=broker.store(), counter=broker.store(), clock=now)</code></pre>
       <p>A worker that dies stops refreshing its lease. <code>recover</code> hands the work it was holding back to the queue, which is what makes a killed worker's tasks run again:</p>
 <pre class="sig"><code>println(broker.recover())   // messages moved back to their queues</code></pre>
+      <p>The same module can speak Celery's layout instead, so one queue can be worked from both sides. The ready list, the envelope, the reservation table and a chord's join keys then belong to Celery, and either side can run what the other published — and hand back what a worker on the other side left behind:</p>
+<pre class="sig"><code>let broker = @redis.Broker::celery(conn, clock=now, consumer="worker-7")</code></pre>
     </li>
 
     <li>

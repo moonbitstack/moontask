@@ -140,6 +140,9 @@ rather than running it early, and runs it when the eta comes.
 - A Celery worker restores an expired claim on its own schedule (once every ten
   polls), which can be minutes. The `restore` scenario starts the worker after
   the claim has aged; a long-running worker would still get there, later.
+- A chord closed by two parts that settle in the same instant may publish its
+  callback twice: the count is raised and read as two commands, which is how
+  Celery's own join behaves as well.
 - `run_links.sh` is not part of CI: it needs a venv with Celery. The MoonBit side
   of it — `moontask-redis/src/tests/celery_layout_test.mbt` — is.
 - The retry differential (`retry_ladder.py`, `compare_ladder.py`,
