@@ -1,11 +1,213 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "moonbitstack/moontask"
 
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/cond_var",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitstack/moondate",
+  "moonbitstack/moondate/cron",
+  "moonbitstack/moontask/spec",
+}
+
 // Values
+pub fn chain(Array[Sig]) -> Sig
+
+pub fn chord(Array[Sig], Sig) -> Sig
+
+pub fn group(Array[Sig]) -> Sig
+
+pub fn milliseconds_of(@moondate.Moment) -> Int64?
+
+pub fn moment_of(Int64) -> @moondate.Moment?
+
+pub async fn nap(Int32) -> Unit noraise
+
+pub let policy : Policy
 
 // Errors
 
 // Types and methods
+pub struct App {
+  broker : &@spec.Broker
+  backend : &@spec.Backend?
+  counter : &@spec.Counter?
+  clock : () -> Int64
+  tasks : Map[String, Registered]
+  running : Map[String, @async.Task[Result[@json.Json, String]]]
+  mut seq : Int32
+}
+pub fn App::beat(Self) -> Beat
+pub fn App::has_task(Self, String) -> Bool
+pub fn App::new(&@spec.Broker, backend? : &@spec.Backend, counter? : &@spec.Counter, clock~ : () -> Int64) -> Self
+pub fn App::now(Self) -> Int64
+pub fn App::policy_of(Self, String) -> Policy?
+pub fn[A : @json.FromJson, R : @json.ToJson] App::task(Self, String, async (A, Context) -> R, policy? : Policy) -> Task[A, R]
+pub fn App::task_names(Self) -> Array[String]
+pub fn App::worker(Self, queues? : Array[String], concurrency? : Int32, prefetch? : Int32) -> Worker
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Backoff {
+  Fixed(delay~ : Int64)
+  Exponential(base~ : Int64, cap~ : Int64, jitter~ : Bool)
+}
+pub fn Backoff::delay(Self, Int32, String) -> Int64
+pub fn Backoff::equal(Self, Self) -> Bool
+pub fn Backoff::not_equal(Self, Self) -> Bool
+pub fn Backoff::to_repr(Self) -> @debug.Repr
+
+pub struct Beat {
+  app : App
+  entries : Array[BeatEntry]
+  mut stopping : Bool
+}
+pub fn[A : @json.ToJson, R] Beat::add(Self, String, Task[A, R], A, Schedule) -> Unit
+pub fn Beat::pending(Self) -> Array[(String, Int64)]
+pub async fn Beat::run(Self) -> Unit raise @spec.Refused
+pub fn Beat::stop(Self) -> Unit
+
+type BeatEntry
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Context {
+  id : String
+  name : String
+  queue : String
+  retries : Int32
+  attempt : Int32
+  last : Bool
+  now : Int64
+}
+pub fn Context::equal(Self, Self) -> Bool
+pub fn Context::not_equal(Self, Self) -> Bool
+pub fn Context::to_repr(Self) -> @debug.Repr
+
+pub struct Handle[R] {
+  app : App
+  ids : Array[String]
+  all : Bool
+  codec : (@json.Json) -> R raise @spec.Refused
+}
+pub async fn[R] Handle::get(Self[R], timeout? : Int64) -> R raise @spec.Refused
+pub fn[R] Handle::ids(Self[R]) -> Array[String]
+pub fn[R : @json.FromJson] Handle::of(App, Array[String], Bool) -> Self[R]
+pub fn Handle::of_json(App, Array[String], Bool) -> Self[@json.Json]
+pub async fn[R] Handle::revoke(Self[R], terminate? : Bool) -> Unit raise @spec.Refused
+pub async fn[R] Handle::state(Self[R]) -> @spec.State raise @spec.Refused
+
+type Limiter
+
+pub struct MemoryBroker {
+  clock : () -> Int64
+  lock : @async.Mutex
+  queues : Map[String, Array[@spec.Message]]
+  mut delayed : Array[@spec.Message]
+  unacked : Map[String, @spec.Delivery]
+  results : Map[String, @spec.Outcome]
+  counters : Map[String, Int32]
+  dead : Array[@spec.Message]
+  mut seq : Int32
+}
+pub async fn MemoryBroker::ack(Self, @spec.Delivery) -> Unit raise @spec.Refused
+pub async fn MemoryBroker::add(Self, String, Int32) -> Int32 raise @spec.Refused
+pub async fn MemoryBroker::consume(Self, ArrayView[String], prefetch~ : Int32) -> @spec.Delivery raise @spec.Refused
+pub async fn MemoryBroker::drop(Self, String) -> Unit raise @spec.Refused
+pub async fn MemoryBroker::fetch(Self, String) -> @spec.Outcome? raise @spec.Refused
+pub fn MemoryBroker::new(clock~ : () -> Int64) -> Self
+pub async fn MemoryBroker::peek(Self, String, limit~ : Int32) -> Array[@spec.Message] raise @spec.Refused
+pub async fn MemoryBroker::publish(Self, String, @spec.Message) -> Unit raise @spec.Refused
+pub async fn MemoryBroker::queues(Self) -> Array[@spec.QueueInfo] raise @spec.Refused
+pub async fn MemoryBroker::reject(Self, @spec.Delivery, requeue~ : Bool) -> Unit raise @spec.Refused
+pub async fn MemoryBroker::store(Self, String, @spec.Outcome) -> Unit raise @spec.Refused
+pub impl @spec.Backend for MemoryBroker
+pub impl @spec.Broker for MemoryBroker
+pub impl @spec.Counter for MemoryBroker
+pub impl @spec.Inspector for MemoryBroker
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Policy {
+  queue : String
+  retries : Int32
+  backoff : Backoff
+  timeout : Int64?
+  acks_late : Bool
+  ignore_result : Bool
+  rate : Rate?
+}
+pub fn Policy::backoff_delay(Self, Int32, String) -> Int64
+pub fn Policy::equal(Self, Self) -> Bool
+pub fn Policy::not_equal(Self, Self) -> Bool
+pub fn Policy::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Rate {
+  count : Int32
+  per : Int64
+}
+pub fn Rate::equal(Self, Self) -> Bool
+pub fn Rate::not_equal(Self, Self) -> Bool
+pub fn Rate::to_repr(Self) -> @debug.Repr
+
+type Registered
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Schedule {
+  Every(interval~ : Int64)
+  Cron(expr~ : @cron.Cron)
+  At(at~ : Int64)
+}
+pub fn Schedule::after(Self, Int64) -> Int64?
+pub fn Schedule::equal(Self, Self) -> Bool
+pub fn Schedule::first(Self, Int64) -> Int64
+pub fn Schedule::not_equal(Self, Self) -> Bool
+pub fn Schedule::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Shape {
+  One
+  All
+}
+pub fn Shape::equal(Self, Self) -> Bool
+pub fn Shape::not_equal(Self, Self) -> Bool
+pub fn Shape::to_repr(Self) -> @debug.Repr
+
+pub struct Sig {
+  publish : Array[@spec.Message]
+  waits : Array[String]
+  shape : Shape
+}
+pub fn Sig::links(Self) -> Array[@spec.Message]
+pub async fn Sig::send(Self, App) -> Handle[@json.Json] raise @spec.Refused
+
+pub struct Task[A, R] {
+  app : App
+  name : String
+  policy : Policy
+  run : async (A, Context) -> R
+}
+pub fn[A, R] Task::name(Self[A, R]) -> String
+pub fn[A, R] Task::policy(Self[A, R]) -> Policy
+pub async fn[A : @json.ToJson, R : @json.FromJson] Task::send(Self[A, R], A, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -> Handle[R] raise @spec.Refused
+pub fn[A : @json.ToJson, R] Task::sig(Self[A, R], A) -> Sig
+
+pub struct Worker {
+  app : App
+  queues : Array[String]
+  concurrency : Int32
+  prefetch : Int32
+  limiters : Map[String, Limiter]
+  consumers : Array[@async.Task[Unit]]
+  mut inflight : Int32
+  mut stopping : Bool
+  done : @cond_var.Cond
+  mut failure : Error?
+}
+pub fn Worker::is_stopping(Self) -> Bool
+pub fn Worker::prefetch(Self) -> Int32
+pub fn Worker::queues(Self) -> Array[String]
+pub async fn Worker::run(Self) -> Unit
+pub async fn Worker::stop(Self, grace? : Int64) -> Unit
 
 // Type aliases
 

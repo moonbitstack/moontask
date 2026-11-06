@@ -1,1 +1,17 @@
-// The task protocol follows Celery's message shape. https://docs.celeryq.dev/en/stable/internals/protocol.html
+// Task queues and schedules: the app, the task, the worker, the beat, and the
+// canvas that chains and groups runs.
+//
+// The seams a transport and a store implement live in `spec`, so this package
+// depends on that one and never on a particular server. Time comes in as a
+// function; nothing here reads the system clock.
+import {
+  "moonbitstack/moontask/spec",
+  "moonbitstack/moondate",
+  "moonbitstack/moondate/cron",
+  "moonbitlang/async",
+  "moonbitlang/core/json",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"

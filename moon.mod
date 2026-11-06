@@ -16,15 +16,29 @@ keywords = [
   "celery",
   "scheduler",
   "cron",
+  "crontab",
   "schedule",
   "retry",
+  "backoff",
+  "prefetch",
   "workflow",
+  "canvas",
+  "chain",
+  "group",
+  "chord",
   "dag",
+  "beat",
+  "periodic",
   "background-jobs",
   "distributed",
   "moonbit",
 ]
 
-description = "Task queues and schedules for MoonBit: workers, retries, periodic beats and workflows. Brokers and result stores are separate modules."
+description = "Task queues and schedules for MoonBit: workers, retries, periodic beats, and the chain, group and chord canvas. Brokers and result stores are separate modules."
 
 source = "src"
+
+import {
+  "moonbitstack/moondate@0.1.4",
+  "moonbitlang/async@0.22.5",
+}
