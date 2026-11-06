@@ -40,32 +40,39 @@ The body decodes to `[[21], {}, {callbacks, errbacks, chain, chord}]`.
 
 ## What has been run
 
-**Direction B, green.** A real Celery 5.5.3 worker on the `celery` queue consumed
-an envelope this library published and answered it:
+Both directions, against Celery 5.5.3 and kombu 5.5.4, one redis, `run_interop.sh`:
 
 ```
-published moon-1793966175696 t.double(21)
+== A: Celery publishes, this library runs it
+celery published cel-A t.double(21) on celery
+state right after publishing: PENDING
+on the queue before anyone takes it: 1
+the meta a Celery client reads: {"task_id":"cel-A","status":"SUCCESS","result":42,...}
+celery sees cel-A: SUCCESS 42
+
+== B: this library publishes, a real Celery worker runs it
+published moon-1793973395090 t.double(21)
 celery answered 42
 ```
 
-`Handle::get` read the answer back out of `celery-task-meta-<id>`, so the
-publish side, the result side and the id all agree with Celery.
-
-**Direction A, not green yet.** Celery publishes (verified: one envelope on the
-queue, `state right after publishing: PENDING`), the bridge reads it — but the
-first run died on our own parser (`malformed: missing key id`): `consume` was
-still calling `Message::parse` on a Celery envelope. That branch is now written
-(`Message::from_celery` when the broker is in Celery's layout, `@json.parse` of
-the payload first) and the module builds, but the run that would have shown the
-`SUCCESS` meta did not finish inside the harness timeout, so the claim is not
-made.
+A is the hard direction: `AsyncResult("cel-A").get()` returned 42 for a run this
+library executed — the queue was Celery's list, the bytes were Celery's envelope,
+the claim was this library's, and the answer was written where Celery looks.
+B runs the other way: a real Celery worker consumed our envelope and wrote the
+answer, and `Handle::get` read it back.
 
 ## What is not done
 
-- Direction A's green run.
-- The differential on state sequences and retry intervals.
-- Two-way *chains* and chords: the envelope carries `chain` and `chord` fields
-  that this codec writes as empty.
+- The differential on state sequences and retry intervals. What is proven is that
+  one message crosses in each direction and produces the same value on both
+  sides; a task that fails, retries on a backoff and settles has not been
+  compared run for run.
+- Chains and chords across the boundary: the envelope has `chain` and `chord`
+  fields, and this codec writes them empty.
+- A Celery worker's reservation lives in one `unacked` hash for every consumer;
+  this broker keeps its own in-flight lists. Two of our workers share a queue
+  with a Celery worker, but a Celery worker that dies leaves its reservation
+  where our `recover` does not look.
 
-`setup.sh` builds the venv (`celery==5.5.3`, kombu 5.5.4) and starts redis;
-`run_interop.sh` drives both directions, one-shot and bounded.
+`setup.sh` builds the venv (`celery==5.5.3`, kombu 5.5.4) and starts redis.
+`celery_side.py` is a real Celery app with the same two task names.

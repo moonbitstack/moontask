@@ -37,7 +37,7 @@ pub impl @spec.Backend for Store with fn store(
   outcome : @spec.Outcome,
 ) -> Unit raise @spec.Refused {
   let text = if self.keys.is_celery() {
-    outcome.to_celery().stringify()
+    outcome.to_celery(id).stringify()
   } else {
     Json(outcome).stringify()
   }

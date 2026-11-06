@@ -208,10 +208,10 @@ pub fn celery_result_key(id : String) -> String {
 ///|
 /// An outcome as Celery's result backend writes it, so a Celery client waiting
 /// on `AsyncResult` reads what a worker here finished.
-pub fn Outcome::to_celery(self : Outcome) -> Json {
+pub fn Outcome::to_celery(self : Outcome, id : String) -> Json {
   let done = Json::string(instant_text(self.at))
   let meta = {
-    "task_id": Json::string(""),
+    "task_id": Json::string(id),
     "status": Json::string(self.state.code()),
     "result": match self.result {
       Some(value) => value
