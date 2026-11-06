@@ -78,9 +78,34 @@ let app = @moontask.App::new(broker, backend=broker.store(), counter=broker.stor
 - Give each worker process its own `consumer` name. `broker.recover()` hands back what a worker that stopped refreshing its lease was holding.
 - A broker with concurrency above one wants a connection per task, or a pooled `RedisConn`.
 
+## Share the queue with a Celery worker
+
+```moonbit
+let broker = @redis.Broker::celery(conn, clock=now, consumer="worker-7")
+let app = @moontask.App::new(broker, backend=broker.store(), counter=broker.store(), clock=now)
+```
+
+The queue is the list named after it, the payload is Celery's envelope, and the
+reservation table is Celery's own `unacked` hash — so either side can run what
+the other published, and either side's `restore_visible`/`recover` can hand back
+a claim that a dead worker left.
+
+- A message with an `eta` goes on the queue and the consumer holds it until then,
+  which is what Celery does. Do not expect a delayed message to be absent from
+  the queue.
+- A chain published here marks every link `immutable`, so each step is called
+  with exactly the arguments it declared. Celery's links are not immutable: the
+  worker prepends the previous link's result. Reading a Celery chain keeps that
+  flag, so a chain may start on one side and continue on the other.
+- A chord's part carries its group and index in the headers and the callback in
+  the body; the join is Celery's own `.j`/`.t`/`.s` keys, written by whichever
+  side settles the part. Either side may close the chord.
+- `settle` is the call a worker makes; `add` only opens a chord.
+
 ## Things that catch people
 
 - `eta` and `expires` are milliseconds since the epoch; `countdown` is a delay from now and loses to `eta`.
 - `acks_late: false` confirms the message before the body runs, so a worker killed mid-run does not repeat the work. Set it true only for work that can be repeated.
 - A `Handle` needs an app with a `Backend`; without one `get` refuses with `Refused::Missing`.
+- One argument is not the same as one list: `single_arg` marks a message whose single argument is itself an array — a chord's callback, for instance. It is set for you when reading Celery's envelope and when a chord's callback is published.
 - `Refused` is the only error type: a failure of the body arrives as `Refused::Failed`, a broker or store problem as `Refused::Transport`.

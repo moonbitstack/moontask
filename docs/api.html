@@ -206,6 +206,9 @@
 <pre class="sig">pub async fn MemoryBroker::reject(Self, @spec.Delivery, requeue~ : Bool) -&gt; Unit raise @spec.Refused</pre>
 </article>
 <article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::settle(Self, @spec.Chord, String, @spec.Outcome) -&gt; @spec.ChordState raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
 <pre class="sig">pub async fn MemoryBroker::store(Self, String, @spec.Outcome) -&gt; Unit raise @spec.Refused</pre>
 </article>
 <article class="api-entry">
@@ -331,6 +334,10 @@
 <section class="api-package" id="pkg-moontask-spec">
 <h2>moontask/spec</h2>
 <h3>Functions and values</h3>
+<article class="api-entry">
+<pre class="sig">pub fn celery_group_key(String, String) -&gt; String</pre>
+<div class="doc"><p>| The keys a chord&#x27;s join lives under in Celery&#x27;s redis backend: the results as they arrive (<code>.j</code>, a sorted set scored by the part&#x27;s index), the adjustment to the size (<code>.t</code>), and the size itself (<code>.s</code>).</p></div>
+</article>
 <article class="api-entry">
 <pre class="sig">pub fn celery_result_key(String) -&gt; String</pre>
 <div class="doc"><p>| The key Celery&#x27;s result backend stores a run under.</p></div>

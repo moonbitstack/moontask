@@ -19,18 +19,21 @@ pub struct Broker {
   keys : Keys
   consumer : String
   lease : Int64
+  visibility : Int64
+  mut seq : Int64
 }
 pub async fn Broker::ack(Self, @spec.Delivery) -> Unit raise @spec.Refused
-pub fn Broker::celery(&@moonredis.RedisConn, clock~ : () -> Int64, consumer? : String, lease? : Int64) -> Self
+pub fn Broker::celery(&@moonredis.RedisConn, clock~ : () -> Int64, consumer? : String, visibility? : Int64) -> Self
 pub async fn Broker::consume(Self, ArrayView[String], prefetch~ : Int32) -> @spec.Delivery raise @spec.Refused
 pub fn Broker::consumer(Self) -> String
-pub fn Broker::new(&@moonredis.RedisConn, clock~ : () -> Int64, prefix? : String, consumer? : String, lease? : Int64) -> Self
+pub fn Broker::new(&@moonredis.RedisConn, clock~ : () -> Int64, prefix? : String, consumer? : String, lease? : Int64, visibility? : Int64) -> Self
 pub async fn Broker::peek(Self, String, limit~ : Int32) -> Array[@spec.Message] raise @spec.Refused
 pub async fn Broker::publish(Self, String, @spec.Message) -> Unit raise @spec.Refused
 pub async fn Broker::queues(Self) -> Array[@spec.QueueInfo] raise @spec.Refused
 pub async fn Broker::recover(Self) -> Int64 raise @spec.Refused
 pub async fn Broker::reject(Self, @spec.Delivery, requeue~ : Bool) -> Unit raise @spec.Refused
 pub fn Broker::store(Self) -> Store
+pub fn Broker::visibility(Self) -> Int64
 pub impl @spec.Broker for Broker
 pub impl @spec.Inspector for Broker
 
@@ -56,6 +59,7 @@ pub async fn Store::add(Self, String, Int32) -> Int32 raise @spec.Refused
 pub async fn Store::drop(Self, String) -> Unit raise @spec.Refused
 pub async fn Store::fetch(Self, String) -> @spec.Outcome? raise @spec.Refused
 pub fn Store::new(&@moonredis.RedisConn, prefix? : String) -> Self
+pub async fn Store::settle(Self, @spec.Chord, String, @spec.Outcome) -> @spec.ChordState raise @spec.Refused
 pub async fn Store::store(Self, String, @spec.Outcome) -> Unit raise @spec.Refused
 pub impl @spec.Backend for Store
 pub impl @spec.Counter for Store

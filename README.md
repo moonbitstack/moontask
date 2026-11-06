@@ -45,7 +45,7 @@ Two further modules live beside it, each with its own `moon.mod` so a queue that
 
 | Module | What it is |
 |:--|:--|
-| `moontask-redis` | A broker and result store on Redis, with per-consumer leases and recovery of a worker that stopped |
+| `moontask-redis` | A broker and result store on Redis, with per-consumer leases and recovery of a worker that stopped — or on Celery's own key layout, so one queue can be shared with a Celery worker |
 | `moontask-admin` | A management interface as an ASGI application: a page, reports, sending, revoking, and a live stream of counts |
 
 ## A task's policy
@@ -89,6 +89,23 @@ let app = @moontask.App::new(broker, backend=broker.store(), counter=broker.stor
 ```
 
 A queue is a list per name, messages waiting for their eta sit in a sorted set, and what a consumer holds is a list of its own kept alive by a lease. `broker.recover()` hands back what a worker that stopped refreshing its lease was holding.
+
+The same module also speaks Celery's layout, so a queue can be worked from both sides:
+
+```moonbit
+let broker = @redis.Broker::celery(conn, clock=now, consumer="worker-7")
+```
+
+| | |
+|:--|:--|
+| the queue | the list named after it, split across Celery's priority steps |
+| the payload | Celery's envelope: task and id in `headers`, arguments in the body |
+| what a consumer holds | Celery's `unacked` hash and its index, so either side can hand back a claim the other left |
+| a chain | each message carries the rest of its chain; a link that is not `immutable` is called with the previous link's result prepended |
+| a chord | the parts' results land in Celery's join keys as they settle, so the last part — on either side — closes it |
+| an eta | the message sits on the queue and the consumer holds it, which is what Celery does |
+
+`interop/` holds the harness that proves it: `bash interop/run_links.sh all` runs eight scenarios against a real Celery 5.5 — a chain and a chord in each direction, a reservation handed back in each direction, and an eta in each direction — and prints what each side ran.
 
 ## Writing a broker
 

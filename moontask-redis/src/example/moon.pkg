@@ -1,5 +1,6 @@
 import {
   "moonbitstack/moontask",
+  "moonbitstack/moontask/spec",
   "moonbitstack/moontask/wait",
   "moonbitstack/moontask-redis/redis",
   "moonbitstack/moonredis",
@@ -7,6 +8,7 @@ import {
   "moonbitlang/async",
   "moonbitlang/core/env",
   "moonbitlang/core/string",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "native"

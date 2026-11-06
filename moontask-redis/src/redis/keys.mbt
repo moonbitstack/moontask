@@ -8,14 +8,19 @@
 // order and pushes to in order; a delayed message is a member of a sorted set
 // scored by its eta, because that is the structure that answers "what is due"
 // without reading everything.
+//
+// In Celery's layout the names are Celery's, not this file's, and that is what
+// lets a queue written here be read there: the ready lists are named after the
+// queue and split by priority, and what every consumer holds is one hash for the
+// whole server rather than a list per consumer.
 
 ///|
 /// The key names one broker uses, under its prefix.
 pub struct Keys {
   prefix : String
-  /// Whether the ready key is Celery's — the queue's own name, no prefix — while
-  /// everything else keeps this prefix. That is the whole of the difference
-  /// between a broker of ours and one a Celery worker can share.
+  /// Whether the queue keys are Celery's — the queue's own name, no prefix — and
+  /// the reservations live in Celery's `unacked` hash. That is the whole of the
+  /// difference between a broker of ours and one a Celery worker can share.
   celery : Bool
 }
 
@@ -26,8 +31,7 @@ fn Keys::new(prefix : String) -> Keys {
 
 ///|
 /// The keys a Celery worker and this broker agree on: the queue is the list
-/// named after it, and the delay set and in-flight list are ours, under
-/// `moontask`.
+/// named after it, and what is held unacknowledged is Celery's own table.
 fn Keys::celery() -> Keys {
   { prefix: "moontask", celery: true, }
 }
@@ -48,13 +52,80 @@ fn Keys::ready(self : Keys, queue : String) -> String {
 }
 
 ///|
-/// The sorted set of a queue's messages waiting for their eta.
+/// The list a queue is ready on for one priority.
+///
+/// Celery splits a queue across the priority steps its transport was configured
+/// with — the queue name, then the name and a separator and the step — and reads
+/// them from the lowest step up. A message of priority `p` belongs on the step at
+/// or below `p`; a broker that ignored the split would publish everything onto
+/// the step Celery reads first, and would never see a message a Celery client
+/// published with a priority.
+fn Keys::ready_pri(self : Keys, queue : String, priority : Int32) -> String {
+  if !self.celery {
+    return self.ready(queue)
+  }
+  let step = priority_step(priority)
+  if step == 0 {
+    queue
+  } else {
+    "\{queue}\u{06}\u{16}\{step}"
+  }
+}
+
+///|
+/// The priority steps Celery's redis transport uses, lowest first. A priority is
+/// rounded down to one of them.
+fn priority_steps() -> Array[Int32] {
+  [0, 3, 6, 9]
+}
+
+///|
+/// The step a priority belongs on: the highest one at or below it.
+fn priority_step(priority : Int32) -> Int32 {
+  let mut chosen = 0
+  for step in priority_steps() {
+    if priority >= step {
+      chosen = step
+    }
+  }
+  chosen
+}
+
+///|
+/// The hash Celery keeps every consumer's unacknowledged messages in, keyed by
+/// delivery tag, with the value `[message, exchange, routing_key]` as JSON.
+///
+/// It is one hash for every consumer on the server, not one per consumer: what
+/// decides whether a reservation is still alive is the claim time in
+/// `unacked_index` and the visibility timeout, not a lease of our own. Sharing
+/// it is what lets a worker here hand back the work of a Celery worker that
+/// died, and lets a Celery worker hand back ours.
+fn unacked() -> String {
+  "unacked"
+}
+
+///|
+/// The sorted set of delivery tags Celery scores by the time they were claimed.
+fn unacked_index() -> String {
+  "unacked_index"
+}
+
+///|
+/// The lock Celery takes while it restores expired reservations.
+fn unacked_mutex() -> String {
+  "unacked_mutex"
+}
+
+///|
+/// The sorted set of a queue's messages waiting for their eta, in this library's
+/// own layout.
 fn Keys::delayed(self : Keys, queue : String) -> String {
   "\{self.prefix}:d:\{queue}"
 }
 
 ///|
-/// The list one consumer holds unacknowledged messages on.
+/// The list one consumer holds unacknowledged messages on, in this library's own
+/// layout.
 fn Keys::inflight(self : Keys, consumer : String, queue : String) -> String {
   "\{self.prefix}:p:\{consumer}:\{queue}"
 }
@@ -85,7 +156,7 @@ fn Keys::result(self : Keys, id : String) -> String {
 }
 
 ///|
-/// The key a chord counts its parts under.
+/// The key a chord counts its parts under, in this library's own layout.
 fn Keys::chord(self : Keys, key : String) -> String {
   "\{self.prefix}:h:\{key}"
 }

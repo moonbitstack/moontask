@@ -12,6 +12,8 @@ import {
   "moonbitstack/moonredis/socket",
   "moonbitlang/async",
   "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
 } for "test"
 
 supported_targets = "native"

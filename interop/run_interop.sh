@@ -21,7 +21,7 @@ echo "== A: Celery publishes, this library runs it"
 $R flushall >/dev/null
 "$PY" "$HERE/celery_side.py" publish cel-A celery
 echo -n "on the queue before anyone takes it: "; $R llen celery
-timeout -k 2 40 "$BRIDGE" consume > "$HERE/out-bridge.txt" 2>&1 &
+timeout -k 2 40 "$BRIDGE" consume celery 1 20 > "$HERE/out-bridge.txt" 2>&1 &
 BPID=$!
 for _ in $(seq 1 20); do [ -n "$($R get celery-task-meta-cel-A)" ] && break; sleep 0.6; done
 kill -9 $BPID 2>/dev/null; wait $BPID 2>/dev/null
@@ -34,5 +34,5 @@ $R flushall >/dev/null
 timeout -k 2 40 "$PY" "$HERE/celery_side.py" worker celery > "$HERE/out-worker.txt" 2>&1 &
 WPID=$!
 sleep 9
-timeout -k 2 35 "$BRIDGE" publish 21
+timeout -k 2 35 "$BRIDGE" publish celery 21
 kill -9 $WPID 2>/dev/null; wait $WPID 2>/dev/null
