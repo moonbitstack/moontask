@@ -1,0 +1,151 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moontask/spec"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn outcome_failed(String, Int32, Int64) -> Outcome
+
+pub fn outcome_succeeded(@json.Json, Int32, Int64) -> Outcome
+
+// Errors
+#derive(Eq, @debug.Debug)
+pub(all) suberror Refused {
+  Unknown(name~ : String)
+  Malformed(got~ : String)
+  Missing(kind~ : String)
+  Timeout(limit~ : Int64)
+  Failed(got~ : String, retries~ : Int32)
+  Empty(kind~ : String)
+}
+pub fn Refused::equal(Self, Self) -> Bool
+pub fn Refused::not_equal(Self, Self) -> Bool
+pub fn Refused::output(Self, &Logger) -> Unit
+pub fn Refused::to_repr(Self) -> @debug.Repr
+pub fn Refused::to_string(Self) -> String
+pub impl Show for Refused
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Chord {
+  key : String
+  index : Int32
+  total : Int32
+  ids : Array[String]
+  callback : Message
+}
+pub fn Chord::equal(Self, Self) -> Bool
+pub fn Chord::from_json(@json.Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Chord::not_equal(Self, Self) -> Bool
+pub fn Chord::to_json(Self) -> @json.Json
+pub fn Chord::to_repr(Self) -> @debug.Repr
+pub impl @json.FromJson for Chord
+pub impl @json.ToJson for Chord
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Delivery {
+  message : Message
+  queue : String
+  receipt : String
+}
+pub fn Delivery::equal(Self, Self) -> Bool
+pub fn Delivery::not_equal(Self, Self) -> Bool
+pub fn Delivery::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Message {
+  id : String
+  name : String
+  args : @json.Json
+  queue : String
+  priority : Int32
+  eta : Int64?
+  expires : Int64?
+  retries : Int32
+  chain : Array[Message]
+  chord : Chord?
+}
+pub fn Message::equal(Self, Self) -> Bool
+pub fn Message::from_json(@json.Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Message::is_due(Self, Int64) -> Bool
+pub fn Message::is_expired(Self, Int64) -> Bool
+pub fn Message::new(String, String, @json.Json) -> Self
+pub fn Message::not_equal(Self, Self) -> Bool
+pub fn Message::parse(StringView) -> Self raise Refused
+pub fn Message::text(Self) -> String
+pub fn Message::to_json(Self) -> @json.Json
+pub fn Message::to_repr(Self) -> @debug.Repr
+pub impl @json.FromJson for Message
+pub impl @json.ToJson for Message
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Outcome {
+  state : State
+  result : @json.Json?
+  error : String?
+  retries : Int32
+  at : Int64
+}
+pub fn Outcome::equal(Self, Self) -> Bool
+pub fn Outcome::from_json(@json.Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Outcome::not_equal(Self, Self) -> Bool
+pub fn Outcome::to_json(Self) -> @json.Json
+pub fn Outcome::to_repr(Self) -> @debug.Repr
+pub impl @json.FromJson for Outcome
+pub impl @json.ToJson for Outcome
+
+#derive(Eq, @debug.Debug)
+pub(all) struct QueueInfo {
+  name : String
+  ready : Int64
+  delayed : Int64
+  unacked : Int64
+}
+pub fn QueueInfo::equal(Self, Self) -> Bool
+pub fn QueueInfo::not_equal(Self, Self) -> Bool
+pub fn QueueInfo::to_repr(Self) -> @debug.Repr
+
+#derive(Eq, @debug.Debug)
+pub(all) enum State {
+  Pending
+  Received
+  Started
+  Retrying
+  Succeeded
+  Failed
+  Revoked
+}
+pub fn State::code(Self) -> String
+pub fn State::equal(Self, Self) -> Bool
+pub fn State::is_final(Self) -> Bool
+pub fn State::not_equal(Self, Self) -> Bool
+pub fn State::of(StringView) -> Self raise Refused
+pub fn State::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits
+pub(open) trait Backend {
+  async fn store(Self, String, Outcome) -> Unit raise Refused
+  async fn fetch(Self, String) -> Outcome? raise Refused
+}
+
+pub(open) trait Broker {
+  async fn publish(Self, String, Message) -> Unit raise Refused
+  async fn consume(Self, ArrayView[String], prefetch~ : Int32) -> Delivery raise Refused
+  async fn ack(Self, Delivery) -> Unit raise Refused
+  async fn reject(Self, Delivery, requeue~ : Bool) -> Unit raise Refused
+}
+
+pub(open) trait Counter {
+  async fn add(Self, String, Int32) -> Int32 raise Refused
+  async fn drop(Self, String) -> Unit raise Refused
+}
+
+pub(open) trait Inspector {
+  async fn queues(Self) -> Array[QueueInfo] raise Refused
+  async fn peek(Self, String, limit~ : Int32) -> Array[Message] raise Refused
+}

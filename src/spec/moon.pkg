@@ -1,0 +1,16 @@
+// The contracts a task queue is built on: what a message is on the wire, what a
+// result looks like, and the seams a broker, a result store and a chord counter
+// implement.
+//
+// This package is deliberately small and depends on nothing but the standard
+// library and the calendar, so a broker for any transport implements `Broker`
+// without pulling in the workers, the beat or the canvas.
+//
+// The message shape follows the protocol Celery 5 speaks between a client and a
+// worker, key for key, so a queue written here can be read by that ecosystem and
+// the other way round.
+// https://docs.celeryq.dev/en/stable/internals/protocol.html
+import {
+  "moonbitlang/core/json",
+  "moonbitstack/moondate",
+}
