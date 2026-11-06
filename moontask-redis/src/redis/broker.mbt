@@ -91,7 +91,10 @@ pub impl @spec.Broker for Broker with fn publish(
 /// The removal is the claim: several consumers promote at once, and only the one
 /// whose `ZREM` removed the member pushes it, so a due message is published once
 /// however many workers are watching.
-async fn Broker::promote(self : Broker, queue : String) -> Unit raise @spec.Refused {
+async fn Broker::promote(
+  self : Broker,
+  queue : String,
+) -> Unit raise @spec.Refused {
   let now = (self.clock)().to_double()
   let due = self.client.zrangebyscore_scores(
     self.keys.delayed(queue),
@@ -118,11 +121,7 @@ async fn Broker::promote(self : Broker, queue : String) -> Unit raise @spec.Refu
 ///|
 /// Say this consumer is alive, so `recover` leaves its work alone.
 async fn Broker::heartbeat(self : Broker) -> Unit raise @spec.Refused {
-  let _ = self.client.set(
-    self.keys.lease(self.consumer),
-    "1",
-    px=self.lease,
-  ) catch {
+  let _ = self.client.set(self.keys.lease(self.consumer), "1", px=self.lease) catch {
     error => raise refused(error)
   }
 }
@@ -163,13 +162,13 @@ pub impl @spec.Broker for Broker with fn consume(
           // A payload that does not decode is not a message this worker can
           // run: it goes back as it came, so an operator can look at it rather
           // than losing it, and the caller hears why the claim failed.
-          let parsed : Result[@spec.Message, @spec.Refused] = try {
-            Ok(@spec.Message::parse(text))
-          } catch {
+          let parsed : Result[@spec.Message, @spec.Refused] = Ok(
+            @spec.Message::parse(text),
+          ) catch {
             error => Err(error)
           }
           match parsed {
-            Ok(message) => return { message, queue, receipt: text }
+            Ok(message) => return { message, queue, receipt: text, }
             Err(error) => {
               let _ = self.client.lpush(self.keys.ready(queue), [text]) catch {
                 inner => raise refused(inner)
@@ -286,9 +285,7 @@ pub async fn Broker::recover(self : Broker) -> Int64 raise @spec.Refused {
         }
         moved = moved + 1L
       }
-      let _ = self.client.del([key]) catch {
-        error => raise refused(error)
-      }
+      let _ = self.client.del([key]) catch { error => raise refused(error) }
     }
     cursor = next
     if cursor == "0" {

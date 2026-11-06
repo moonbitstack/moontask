@@ -6,15 +6,17 @@ async test "a worker on redis runs a task and the handle answers" {
   let prefix = unique("e2e")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="e2e")
-  let store = broker.store()
-  let app = @moontask.App::new(
-    broker,
-    backend=store,
-    counter=store,
+  let broker = @redis.Broker::new(
+    conn,
     clock=fn() { clock.now() },
+    prefix~,
+    consumer="e2e",
   )
-  let echo = app.task("echo", fn(value : Int, _) { value + 1 })
+  let store = broker.store()
+  let app = @moontask.App::new(broker, backend=store, counter=store, clock=fn() {
+    clock.now()
+  })
+  let echo = app.task("echo", fn(value : Int32, _) { value + 1 })
   let handle = echo.send(41)
   let worker = app.worker()
   @async.with_task_group(async fn(group) {
@@ -39,23 +41,28 @@ async test "a chord counts its parts on the server" {
   let prefix = unique("chorde2e")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="chord")
-  let store = broker.store()
-  let app = @moontask.App::new(
-    broker,
-    backend=store,
-    counter=store,
+  let broker = @redis.Broker::new(
+    conn,
     clock=fn() { clock.now() },
+    prefix~,
+    consumer="chord",
   )
-  let square = app.task("square", fn(value : Int, _) { value * value })
-  let total = app.task("total", fn(values : Array[Int], _) {
+  let store = broker.store()
+  let app = @moontask.App::new(broker, backend=store, counter=store, clock=fn() {
+    clock.now()
+  })
+  let square = app.task("square", fn(value : Int32, _) { value * value })
+  let total = app.task("total", fn(values : Array[Int32], _) {
     let mut sum = 0
     for value in values {
       sum = sum + value
     }
     sum
   })
-  let sig = @moontask.chord([square.sig(2), square.sig(3), square.sig(4)], total.sig([]))
+  let sig = @moontask.chord(
+    [square.sig(2), square.sig(3), square.sig(4)],
+    total.sig([]),
+  )
   let handle = sig.send(app)
   let worker = app.worker()
   @async.with_task_group(async fn(group) {
@@ -72,14 +79,16 @@ async test "a task with an eta is held until its time on the server" {
   let prefix = unique("etae2e")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="eta")
-  let store = broker.store()
-  let app = @moontask.App::new(
-    broker,
-    backend=store,
-    counter=store,
+  let broker = @redis.Broker::new(
+    conn,
     clock=fn() { clock.now() },
+    prefix~,
+    consumer="eta",
   )
+  let store = broker.store()
+  let app = @moontask.App::new(broker, backend=store, counter=store, clock=fn() {
+    clock.now()
+  })
   let ran = []
   let later = app.task("later", fn(_ : Unit, _) -> Unit { ran.push(1) })
   let _ = later.send((), countdown=60000L)

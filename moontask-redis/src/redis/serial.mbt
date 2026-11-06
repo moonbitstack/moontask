@@ -21,7 +21,7 @@ pub struct SerialConn {
 ///|
 /// `conn`, one command at a time.
 pub fn SerialConn::new(conn : &@moonredis.RedisConn) -> SerialConn {
-  { inner: conn, lock: @async.Mutex::Mutex() }
+  { inner: conn, lock: @async.Mutex::Mutex(), }
 }
 
 ///|
@@ -30,9 +30,9 @@ pub impl @moonredis.RedisConn for SerialConn with fn execute(
   args : Array[Bytes],
 ) -> @resp.RespValue raise @moonredis.RedisError {
   self.lock.acquire()
-  let outcome : Result[@resp.RespValue, @moonredis.RedisError] = try {
-    Ok(self.inner.execute(args))
-  } catch {
+  let outcome : Result[@resp.RespValue, @moonredis.RedisError] = Ok(
+    self.inner.execute(args),
+  ) catch {
     error => Err(error)
   }
   self.lock.release()
@@ -48,9 +48,9 @@ pub impl @moonredis.RedisConn for SerialConn with fn execute_all(
   commands : Array[Array[Bytes]],
 ) -> Array[@resp.RespValue] raise @moonredis.RedisError {
   self.lock.acquire()
-  let outcome : Result[Array[@resp.RespValue], @moonredis.RedisError] = try {
-    Ok(self.inner.execute_all(commands))
-  } catch {
+  let outcome : Result[Array[@resp.RespValue], @moonredis.RedisError] = Ok(
+    self.inner.execute_all(commands),
+  ) catch {
     error => Err(error)
   }
   self.lock.release()

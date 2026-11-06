@@ -6,7 +6,12 @@ async test "a published message comes back in the order it was published" {
   let prefix = unique("order")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="a")
+  let broker = @redis.Broker::new(
+    conn,
+    clock=fn() { clock.now() },
+    prefix~,
+    consumer="a",
+  )
   for name in ["m-1", "m-2", "m-3"] {
     broker.publish("default", @spec.Message::new(name, "task", Json::null()))
   }
@@ -26,7 +31,12 @@ async test "a message waits for its eta in the sorted set" {
   let prefix = unique("eta")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="a")
+  let broker = @redis.Broker::new(
+    conn,
+    clock=fn() { clock.now() },
+    prefix~,
+    consumer="a",
+  )
   broker.publish("default", {
     ..@spec.Message::new("m-eta", "task", Json::null()),
     eta: Some(1_000_500L),
@@ -46,7 +56,12 @@ async test "a message rejected with requeue comes back" {
   let prefix = unique("requeue")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="a")
+  let broker = @redis.Broker::new(
+    conn,
+    clock=fn() { clock.now() },
+    prefix~,
+    consumer="a",
+  )
   broker.publish("default", @spec.Message::new("m-r", "task", Json::null()))
   let delivery = broker.consume(["default"], prefetch=1)
   broker.reject(delivery, requeue=true)
@@ -64,7 +79,12 @@ async test "a message rejected without requeue is gone" {
   let prefix = unique("drop")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="a")
+  let broker = @redis.Broker::new(
+    conn,
+    clock=fn() { clock.now() },
+    prefix~,
+    consumer="a",
+  )
   broker.publish("default", @spec.Message::new("m-d", "task", Json::null()))
   let delivery = broker.consume(["default"], prefetch=1)
   broker.reject(delivery, requeue=false)
@@ -79,9 +99,20 @@ async test "peek shows the next messages without claiming them" {
   let prefix = unique("peek")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="a")
-  broker.publish("default", @spec.Message::new("m-p1", "task", Json::string("one")))
-  broker.publish("default", @spec.Message::new("m-p2", "task", Json::string("two")))
+  let broker = @redis.Broker::new(
+    conn,
+    clock=fn() { clock.now() },
+    prefix~,
+    consumer="a",
+  )
+  broker.publish(
+    "default",
+    @spec.Message::new("m-p1", "task", Json::string("one")),
+  )
+  broker.publish(
+    "default",
+    @spec.Message::new("m-p2", "task", Json::string("two")),
+  )
   let seen = broker.peek("default", limit=5)
   assert_eq(seen.length(), 2)
   assert_eq(seen[0].id, "m-p1")
@@ -96,7 +127,11 @@ async test "a result round-trips through the store" {
   clear(conn, prefix)
   let store = @redis.Store::new(conn, prefix~)
   assert_eq(store.fetch("x"), None)
-  let outcome = @spec.outcome_succeeded(Json::array([Json::number(3.0)]), 1, 1_000_000L)
+  let outcome = @spec.outcome_succeeded(
+    Json::array([Json::number(3.0)]),
+    1,
+    1_000_000L,
+  )
   store.store("x", outcome)
   assert_eq(store.fetch("x"), Some(outcome))
   store.store("x", @spec.outcome_failed("boom", 2, 1_000_001L))
@@ -158,7 +193,12 @@ async test "a live consumer keeps its work out of recovery" {
   let prefix = unique("keeplive")
   clear(conn, prefix)
   let clock = Manual::new(1_000_000L)
-  let broker = @redis.Broker::new(conn, clock=fn() { clock.now() }, prefix~, consumer="live")
+  let broker = @redis.Broker::new(
+    conn,
+    clock=fn() { clock.now() },
+    prefix~,
+    consumer="live",
+  )
   broker.publish("default", @spec.Message::new("m-keep", "task", Json::null()))
   let delivery = broker.consume(["default"], prefetch=1)
   // The same consumer runs recovery: its own lease is still there, so its

@@ -14,7 +14,10 @@ pub struct Store {
 
 ///|
 /// A store over the same connection and prefix as `broker`.
-pub fn Store::new(conn : &@moonredis.RedisConn, prefix~ : String = "moontask") -> Store {
+pub fn Store::new(
+  conn : &@moonredis.RedisConn,
+  prefix~ : String = "moontask",
+) -> Store {
   {
     client: @moonredis.Client::new(SerialConn::new(conn)),
     keys: Keys::new(prefix),
@@ -24,7 +27,7 @@ pub fn Store::new(conn : &@moonredis.RedisConn, prefix~ : String = "moontask") -
 ///|
 /// A store beside a broker, sharing its prefix.
 pub fn Broker::store(self : Broker) -> Store {
-  { client: self.client, keys: self.keys }
+  { client: self.client, keys: self.keys, }
 }
 
 ///|
@@ -40,10 +43,7 @@ pub impl @spec.Backend for Store with fn store(
 }
 
 ///|
-pub impl @spec.Backend for Store with fn fetch(
-  self : Store,
-  id : String,
-) -> @spec.Outcome? raise @spec.Refused {
+pub impl @spec.Backend for Store with fn fetch(self : Store, id : String) -> @spec.Outcome? raise @spec.Refused {
   let value = self.client.get(self.keys.result(id)) catch {
     error => raise @spec.Refused::Transport(got=@debug.to_string(error))
   }
@@ -76,10 +76,7 @@ pub impl @spec.Counter for Store with fn add(
 }
 
 ///|
-pub impl @spec.Counter for Store with fn drop(
-  self : Store,
-  key : String,
-) -> Unit raise @spec.Refused {
+pub impl @spec.Counter for Store with fn drop(self : Store, key : String) -> Unit raise @spec.Refused {
   let _ = self.client.del([self.keys.chord(key)]) catch {
     error => raise @spec.Refused::Transport(got=@debug.to_string(error))
   }
@@ -97,9 +94,9 @@ pub extend Store with @spec.Counter::{add, drop}
 /// The three key families are scanned rather than kept in an index: a queue that
 /// was written by another process must show up without that process having
 /// registered it anywhere.
-pub impl @spec.Inspector for Broker with fn queues(
-  self : Broker,
-) -> Array[@spec.QueueInfo] raise @spec.Refused {
+pub impl @spec.Inspector for Broker with fn queues(self : Broker) -> Array[
+  @spec.QueueInfo,
+] raise @spec.Refused {
   let names = Map([])
   let known = self.client.smembers(self.keys.known()) catch {
     error => raise @spec.Refused::Transport(got=@debug.to_string(error))
@@ -177,7 +174,7 @@ pub impl @spec.Inspector for Broker with fn queues(
         break
       }
     }
-    info.push(@spec.QueueInfo::{ name, ready, delayed, unacked })
+    info.push(@spec.QueueInfo::{ name, ready, delayed, unacked, })
   }
   info
 }
