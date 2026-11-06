@@ -1,0 +1,1 @@
+waiting for one message on the celery queue
