@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>moontask · API</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./index.html">moontask</a>
+  <nav><a href="./index.html">Home</a><a href="./guide.html">Guide</a><a href="./api.html" aria-current="page">API</a><a href="./showcase.html">Showcase</a><a href="https://github.com/moonbitstack/moontask">GitHub</a></nav>
+</header>
+<main class="api">
+<h1>API reference</h1>
+<p class="lede">Every public item of the module, generated from the interfaces <code>moon info</code> writes.</p>
+<!-- BEGIN API -->
+<section class="api-package" id="pkg-moontask">
+<h2>moontask</h2>
+<h3>Functions and values</h3>
+<article class="api-entry">
+<pre class="sig">pub fn chain(Array[Sig]) -&gt; Sig</pre>
+<div class="doc"><p>| The runs in <code>sigs</code>, in order, each one started when the one before it succeeds.</p>
+<p>A chain of chains is flattened, so <code>chain([a, chain([b, c])])</code> is <code>a → b → c</code>. Building a chain publishes nothing.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn chord(Array[Sig], Sig) -&gt; Sig</pre>
+<div class="doc"><p>| The runs in <code>parts</code>, then <code>callback</code> once every part has succeeded.</p>
+<p>The callback is sent with the list of part results as its argument, in the order the parts were given. Every part carries the same key and the same list of ids, so the part that finishes last can collect the set by itself.</p>
+<p>A part that fails for good does not hold the chord open: the last part to finish records the callback as failed, so nobody waits on a callback that will never be sent.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn group(Array[Sig]) -&gt; Sig</pre>
+<div class="doc"><p>| Every run in <code>sigs</code>, all at once, waited on together.</p>
+<p>A chain given to a group is not broken up: its head is published and its tail travels with it, so the group waits on the chain&#x27;s last link. The handle&#x27;s value is the list of results in the order the sigs were given.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn milliseconds_of(@moondate.Moment) -&gt; Int64?</pre>
+<div class="doc"><p>| Milliseconds since the epoch of an instant.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn moment_of(Int64) -&gt; @moondate.Moment?</pre>
+<div class="doc"><p>| An instant from milliseconds since the epoch.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub let policy : Policy</pre>
+<div class="doc"><p>| The defaults, documented field by field on [<code>Policy</code>].</p></div>
+</article>
+<h3>Types and methods</h3>
+<article class="api-entry">
+<pre class="sig">pub struct App {</pre>
+<ul class="members"><li><code>broker</code><span>&amp;@spec.Broker</span></li><li><code>backend</code><span>&amp;@spec.Backend?</span></li><li><code>counter</code><span>&amp;@spec.Counter?</span></li><li><code>clock</code><span>() -&gt; Int64</span></li><li><code>tasks</code><span>Map[String, Registered]</span></li><li><code>running</code><span>Map[String, @async.Task[Result[@json.Json, String]]]</span></li><li><code>mut seq : Int32</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| The object every other type hangs off.</p>
+<p>It owns the three seams (broker, result store, chord counter), the clock the library reads instead of the system clock, and the registry that turns a message name back into a body. Nothing here is global: two apps in one process do not see each other&#x27;s tasks.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::backend_of(Self) -&gt; &amp;@spec.Backend?</pre>
+<div class="doc"><p>| The result store the app was given, or <code>None</code> when it keeps nothing.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::beat(Self) -&gt; Beat</pre>
+<div class="doc"><p>| A beat on <code>app</code> with nothing scheduled.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::has_task(Self, String) -&gt; Bool</pre>
+<div class="doc"><p>| Whether a body is registered under <code>name</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::new(&amp;@spec.Broker, backend? : &amp;@spec.Backend, counter? : &amp;@spec.Counter, clock~ : () -&gt; Int64) -&gt; Self</pre>
+<div class="doc"><p>| An app on <code>broker</code>, with <code>backend</code> keeping results, <code>counter</code> counting chord parts, and <code>clock</code> as the only source of time.</p>
+<p>The store and the counter are optional: an app without a store runs tasks nobody waits on, and an app without a counter refuses to build a chord. A broker that also implements <code>Backend</code> and <code>Counter</code> — the in-memory one and the Redis one both do — is passed three times.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::now(Self) -&gt; Int64</pre>
+<div class="doc"><p>| The app&#x27;s time, in milliseconds since the epoch.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::policy_of(Self, String) -&gt; Policy?</pre>
+<div class="doc"><p>| The policy registered under <code>name</code>, or <code>None</code> when nobody registered it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn App::send(Self, String, @json.Json, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -&gt; Handle[@json.Json] raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A : @json.FromJson, R : @json.ToJson] App::task(Self, String, async (A, Context) -&gt; R, policy? : Policy) -&gt; Task[A, R]</pre>
+<div class="doc"><p>| Register <code>run</code> under <code>name</code> and return the task a caller sends.</p>
+<p>Registering twice under the same name replaces the first, which is what makes it possible to run the same task under two policies in one test.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::task_names(Self) -&gt; Array[String]</pre>
+<div class="doc"><p>| Every registered name, sorted so a page listing them is stable.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::worker(Self, queues? : Array[String], concurrency? : Int32, prefetch? : Int32) -&gt; Worker</pre>
+<div class="doc"><p>| A worker over <code>queues</code> that runs up to <code>concurrency</code> tasks at once.</p>
+<p><code>prefetch</code> is how many messages one worker may hold unsettled: a worker that holds more than it can run looks busy while the queue behind it starves.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Backoff::delay(Self, Int32, String) -&gt; Int64</pre>
+<div class="doc"><p>| The wait before attempt <code>attempt</code>, counting the first attempt as one.</p>
+<p><code>seed</code> is what the spread is derived from: the task id in practice. Attempt zero never waits, since nothing has failed yet.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Backoff::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Backoff::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Backoff::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Beat {</pre>
+<ul class="members"><li><code>app</code><span>App</span></li><li><code>entries</code><span>Array[BeatEntry]</span></li><li><code>mut stopping : Bool</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| The object that sends tasks on a schedule.</p>
+<p>A beat holds a list of entries and, every tick, sends the ones whose time has come. It keeps the phase: a schedule of every hour fires at the same minute every hour even if one tick ran late, because the next time is computed from the time that was due, not from the time the tick happened.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A : @json.ToJson, R] Beat::add(Self, String, Task[A, R], A, Schedule) -&gt; Unit</pre>
+<div class="doc"><p>| Schedule <code>task</code> with <code>args</code> under <code>name</code>.</p>
+<p>The name identifies the entry, not the task: the same task may be scheduled twice under two names and two schedules.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Beat::pending(Self) -&gt; Array[(String, Int64)]</pre>
+<div class="doc"><p>| The entry names and when each fires next, soonest first.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Beat::run(Self) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Beat::stop(Self) -&gt; Unit</pre>
+<div class="doc"><p>| Stop after the tick in progress.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Context::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Context::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Context::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Handle[R] {</pre>
+<ul class="members"><li><code>app</code><span>App</span></li><li><code>ids</code><span>Array[String]</span></li><li><code>all</code><span>Bool</span></li><li><code>codec</code><span>(@json.Json) -&gt; R raise @spec.Refused</span></li><li><code>}</code></li></ul>
+<div class="doc"><p>| A run, or a set of runs, a caller can wait on and look at.</p>
+<p>The result type is the one the task returns: <code>get</code> decodes the stored JSON back into it. <code>state</code> and <code>revoke</code> work on anything, since a caller that wants to cancel a run does not care what it would have returned.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn[R] Handle::get(Self[R], timeout? : Int64) -&gt; R raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[R] Handle::ids(Self[R]) -&gt; Array[String]</pre>
+<div class="doc"><p>| The ids the handle waits on.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[R : @json.FromJson] Handle::of(App, Array[String], Bool) -&gt; Self[R]</pre>
+<div class="doc"><p>| A handle over <code>ids</code> whose value decodes into <code>R</code>; <code>all</code> makes <code>get</code> answer the list of results in the order of <code>ids</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Handle::of_json(App, Array[String], Bool) -&gt; Self[@json.Json]</pre>
+<div class="doc"><p>| A handle over <code>ids</code> of runs that already answer in JSON.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn[R] Handle::revoke(Self[R], terminate? : Bool) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn[R] Handle::state(Self[R]) -&gt; @spec.State raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct MemoryBroker {</pre>
+<ul class="members"><li><code>clock</code><span>() -&gt; Int64</span></li><li><code>lock</code><span>@async.Mutex</span></li><li><code>queues</code><span>Map[String, Array[@spec.Message]]</span></li><li><code>mut delayed : Array[@spec.Message]</code></li><li><code>unacked</code><span>Map[String, @spec.Delivery]</span></li><li><code>results</code><span>Map[String, @spec.Outcome]</span></li><li><code>counters</code><span>Map[String, Int32]</span></li><li><code>dead</code><span>Array[@spec.Message]</span></li><li><code>mut seq : Int32</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| A broker, result store, chord counter and inspector over maps.</p>
+<p><code>clock</code> is the same function the app is given: the broker needs time to know when a delayed message is due, and the library never reads the system clock itself.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::ack(Self, @spec.Delivery) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::add(Self, String, Int32) -&gt; Int32 raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::consume(Self, ArrayView[String], prefetch~ : Int32) -&gt; @spec.Delivery raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::drop(Self, String) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::fetch(Self, String) -&gt; @spec.Outcome? raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn MemoryBroker::new(clock~ : () -&gt; Int64) -&gt; Self</pre>
+<div class="doc"><p>| An empty broker whose time comes from <code>clock</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::peek(Self, String, limit~ : Int32) -&gt; Array[@spec.Message] raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::publish(Self, String, @spec.Message) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::queues(Self) -&gt; Array[@spec.QueueInfo] raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::reject(Self, @spec.Delivery, requeue~ : Bool) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn MemoryBroker::store(Self, String, @spec.Outcome) -&gt; Unit raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @spec.Backend for MemoryBroker</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @spec.Broker for MemoryBroker</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @spec.Counter for MemoryBroker</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @spec.Inspector for MemoryBroker</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Policy::backoff_delay(Self, Int32, String) -&gt; Int64</pre>
+<div class="doc"><p>| The wait before attempt <code>attempt</code> of a task whose id is <code>seed</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Policy::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Policy::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Policy::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Rate::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Rate::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Rate::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Schedule::after(Self, Int64) -&gt; Int64?</pre>
+<div class="doc"><p>| The first time this schedule fires strictly after <code>at</code>, or <code>None</code> when it never fires again.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Schedule::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Schedule::first(Self, Int64) -&gt; Int64</pre>
+<div class="doc"><p>| The first time this schedule fires at or after <code>now</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Schedule::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Schedule::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Shape::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Shape::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Shape::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Sig {</pre>
+<ul class="members"><li><code>publish</code><span>Array[@spec.Message]</span></li><li><code>waits</code><span>Array[String]</span></li><li><code>shape</code><span>Shape</span></li><li><code>}</code></li></ul>
+<div class="doc"><p>| A piece of work that has not been published yet.</p>
+<p>The messages are ready to go; <code>waits</code> is what a caller waits on afterwards, which for a chain is its last link and for a chord is the callback. Building a sig publishes nothing, so a canvas can be built once and sent twice.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Sig::links(Self) -&gt; Array[@spec.Message]</pre>
+<div class="doc"><p>| Every message this sig stands for, in the order they run: the links of a chain, the parts of a group.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Sig::send(Self, App) -&gt; Handle[@json.Json] raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Task[A, R] {</pre>
+<ul class="members"><li><code>app</code><span>App</span></li><li><code>name</code><span>String</span></li><li><code>policy</code><span>Policy</span></li><li><code>run</code><span>async (A, Context) -&gt; R</span></li><li><code>}</code></li></ul>
+<div class="doc"><p>| A registered body. Sending it writes a message and hands back a handle.</p>
+<p>The argument type is what the body takes; the result type is what it returns, and the handle decodes the stored value back into it. Both go over the wire as JSON, so a task may be sent by one process and run by another.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A, R] Task::name(Self[A, R]) -&gt; String</pre>
+<div class="doc"><p>| The name the message carries.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A, R] Task::policy(Self[A, R]) -&gt; Policy</pre>
+<div class="doc"><p>| The policy the registration was given.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn[A : @json.ToJson, R : @json.FromJson] Task::send(Self[A, R], A, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -&gt; Handle[R] raise @spec.Refused</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A : @json.ToJson, R] Task::sig(Self[A, R], A) -&gt; Sig</pre>
+<div class="doc"><p>| The run of <code>args</code> as a node of a canvas, without publishing it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Worker {</pre>
+<ul class="members"><li><code>app</code><span>App</span></li><li><code>queues</code><span>Array[String]</span></li><li><code>concurrency</code><span>Int32</span></li><li><code>prefetch</code><span>Int32</span></li><li><code>limiters</code><span>Map[String, Limiter]</span></li><li><code>consumers</code><span>Array[@async.Task[Unit]]</span></li><li><code>mut inflight : Int32</code></li><li><code>mut stopping : Bool</code></li><li><code>done</code><span>@cond_var.Cond</span></li><li><code>mut failure : Error?</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| The object that runs tasks.</p>
+<p>A worker consumes from <code>queues</code>, runs up to <code>concurrency</code> bodies at once, and settles each message according to the task&#x27;s policy: a failure within the retry budget goes back on the queue with an <code>eta</code> computed from the backoff, a success advances the chain or the chord the message carries.</p>
+<p><code>stop</code> is graceful: it stops taking new messages, waits up to <code>grace</code> milliseconds for the ones in flight, then cancels whatever is left.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Worker::is_stopping(Self) -&gt; Bool</pre>
+<div class="doc"><p>| Whether <code>stop</code> has been called.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Worker::prefetch(Self) -&gt; Int32</pre>
+<div class="doc"><p>| The most messages this worker holds unsettled at once.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Worker::queues(Self) -&gt; Array[String]</pre>
+<div class="doc"><p>| The queues this worker takes from.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Worker::run(Self) -&gt; Unit</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Worker::stop(Self, grace? : Int64) -&gt; Unit</pre>
+</article>
+</section>
+<section class="api-package" id="pkg-moontask-spec">
+<h2>moontask/spec</h2>
+<h3>Functions and values</h3>
+<article class="api-entry">
+<pre class="sig">pub fn outcome_failed(String, Int32, Int64) -&gt; Outcome</pre>
+<div class="doc"><p>| The outcome of a run that raised <code>error</code> on attempt <code>retries</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn outcome_succeeded(@json.Json, Int32, Int64) -&gt; Outcome</pre>
+<div class="doc"><p>| The outcome of a run that returned <code>value</code>.</p></div>
+</article>
+<h3>Errors</h3>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::output(Self, &amp;Logger) -&gt; Unit</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::to_string(Self) -&gt; String</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl Show for Refused</pre>
+</article>
+<h3>Types and methods</h3>
+<article class="api-entry">
+<pre class="sig">pub fn Chord::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Chord::from_json(@json.Json, @json.JsonPath) -&gt; Self raise @json.JsonDecodeError</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Chord::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Chord::to_json(Self) -&gt; @json.Json</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Chord::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @json.FromJson for Chord</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @json.ToJson for Chord</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Delivery::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Delivery::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Delivery::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::from_json(@json.Json, @json.JsonPath) -&gt; Self raise @json.JsonDecodeError</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::is_due(Self, Int64) -&gt; Bool</pre>
+<div class="doc"><p>| Whether the message may run at <code>now</code>: its <code>eta</code>, when set, has come.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::is_expired(Self, Int64) -&gt; Bool</pre>
+<div class="doc"><p>| Whether the message is past the time it may still run at <code>now</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::new(String, String, @json.Json) -&gt; Self</pre>
+<div class="doc"><p>| A message for <code>name</code> with argument <code>args</code>, queued on <code>default</code> with no delay and no retries behind it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::parse(StringView) -&gt; Self raise Refused</pre>
+<div class="doc"><p>| A message read from its JSON text. The <code>FromJson</code> impl is the same reading; this is the entry a broker uses, so a bad payload is refused in this library&#x27;s terms rather than in the JSON module&#x27;s.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::text(Self) -&gt; String</pre>
+<div class="doc"><p>| The JSON text of a message, which is what a broker stores.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::to_json(Self) -&gt; @json.Json</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Message::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @json.FromJson for Message</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @json.ToJson for Message</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Outcome::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Outcome::from_json(@json.Json, @json.JsonPath) -&gt; Self raise @json.JsonDecodeError</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Outcome::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Outcome::to_json(Self) -&gt; @json.Json</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Outcome::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @json.FromJson for Outcome</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @json.ToJson for Outcome</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn QueueInfo::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn QueueInfo::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn QueueInfo::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::code(Self) -&gt; String</pre>
+<div class="doc"><p>| The label a result store writes for a state. These are the labels the published protocol uses, so a result written by another producer reads back as the same state.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::is_final(Self) -&gt; Bool</pre>
+<div class="doc"><p>| Whether no further state will follow. A caller waiting for a result stops here.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::of(StringView) -&gt; Self raise Refused</pre>
+<div class="doc"><p>| The state a store&#x27;s label names. An unknown label is refused rather than read as <code>Pending</code>: a store that grew a state this library does not know is a store this library must not guess about.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::output(Self, &amp;Logger) -&gt; Unit</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn State::to_string(Self) -&gt; String</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl Show for State</pre>
+</article>
+</section>
+<section class="api-package" id="pkg-moontask-schedule">
+<h2>moontask/schedule</h2>
+<h3>Functions and values</h3>
+<article class="api-entry">
+<pre class="sig">pub fn every(Int64) -&gt; Job</pre>
+<div class="doc"><p>| A job every <code>milliseconds</code>, before a unit is chosen.</p>
+<p><code>every(10).seconds()</code> is ten seconds and <code>every(10).minutes()</code> is ten minutes; <code>every(250)</code> on its own is two hundred and fifty milliseconds.</p></div>
+</article>
+<h3>Types and methods</h3>
+<article class="api-entry">
+<pre class="sig">pub struct Job {</pre>
+<ul class="members"><li><code>name</code><span>String</span></li><li><code>interval</code><span>Int64</span></li><li><code>anchor</code><span>Int64</span></li><li><code>action</code><span>(async () -&gt; Unit)?</span></li><li><code>mut next : Int64</code></li><li><code>mut runs : Int32</code></li><li><code>mut failures : Int32</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| One rhythm inside a process.</p>
+<p>Built by [<code>every</code>] and refined in a chain: <code>every(10).minutes()</code> is ten minutes, <code>.at(&quot;:30&quot;)</code> puts it on the half minute, and <code>.run(action)</code> gives it something to do. The interval is kept in milliseconds, which is the unit the rest of this library uses; <code>every(n)</code> on its own is n milliseconds.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::at(Self, StringView) -&gt; Self raise @spec.Refused</pre>
+<div class="doc"><p>| Where in the period the run lands: <code>&quot;:30&quot;</code> is thirty seconds past the boundary, <code>&quot;15:30&quot;</code> fifteen minutes and thirty seconds past it, and <code>&quot;9:15:00&quot;</code> nine hours, fifteen minutes past it.</p>
+<p>A time that does not fit the period is refused rather than rounded, since a rhythm that fires at a time it was not asked for is worse than one that does not start.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::days(Self) -&gt; Self</pre>
+<div class="doc"><p>| The interval read as days.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::failures(Self) -&gt; Int32</pre>
+<div class="doc"><p>| How many of those runs raised.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::hours(Self) -&gt; Self</pre>
+<div class="doc"><p>| The interval read as hours.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::interval(Self) -&gt; Int64</pre>
+<div class="doc"><p>| How long one period is, in milliseconds.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::minutes(Self) -&gt; Self</pre>
+<div class="doc"><p>| The interval read as minutes.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::name(Self) -&gt; String</pre>
+<div class="doc"><p>| The name of the job, <code>job</code> until one is given.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::named(Self, String) -&gt; Self</pre>
+<div class="doc"><p>| A name for the job, for a page that lists what is scheduled.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::next_after(Self, Int64) -&gt; Int64</pre>
+<div class="doc"><p>| The first time this job fires strictly after <code>after</code>.</p>
+<p>The rhythm is anchored to the epoch and shifted by the job&#x27;s offset, so a job every ten minutes at <code>&quot;:30&quot;</code> fires at 00:00:30, 00:10:30 and so on, whatever time it was added at. Strictly after is what makes a loop that has just fired ask for the run after it, rather than for the one it has just done.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::next_at(Self) -&gt; Int64</pre>
+<div class="doc"><p>| When the job runs next, in milliseconds since the epoch.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::run(Self, async () -&gt; Unit) -&gt; Self</pre>
+<div class="doc"><p>| What the job does, and the job itself so the chain can continue.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::runs(Self) -&gt; Int32</pre>
+<div class="doc"><p>| How many times the job has run.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Job::seconds(Self) -&gt; Self</pre>
+<div class="doc"><p>| The interval read as seconds.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Scheduler {</pre>
+<ul class="members"><li><code>clock</code><span>() -&gt; Int64</span></li><li><code>jobs</code><span>Array[Job]</span></li><li><code>mut stopping : Bool</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| A set of jobs and the clock they run against.</p>
+<p>The scheduler holds no queue and no store: a job that must survive a restart, run on another machine, or be retried belongs on a task instead. What it does keep is the rhythm — the next run of each job is computed from the run that was due, not from the moment the loop happened to wake, so a loop that was busy for a while does not drag every job with it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Scheduler::add(Self, Job) -&gt; Unit</pre>
+<div class="doc"><p>| Take <code>job</code> into the schedule, with its first run computed from now.</p>
+<p>The job is held as it was given: changing it afterwards changes nothing, so build the chain before adding it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Scheduler::new(clock~ : () -&gt; Int64) -&gt; Self</pre>
+<div class="doc"><p>| A scheduler whose only source of time is <code>clock</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Scheduler::pending(Self) -&gt; Array[Job]</pre>
+<div class="doc"><p>| Every job, soonest first, with how many times each has run.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Scheduler::run(Self) -&gt; Unit</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Scheduler::stop(Self) -&gt; Unit</pre>
+<div class="doc"><p>| Stop after the run in progress. The loop wakes at least every 50 milliseconds, so this takes effect promptly even with nothing scheduled.</p></div>
+</article>
+</section>
+<section class="api-package" id="pkg-moontask-wait">
+<h2>moontask/wait</h2>
+<h3>Functions and values</h3>
+<article class="api-entry">
+<pre class="sig">pub async fn nap(Int32) -&gt; Unit noraise</pre>
+</article>
+</section>
+<!-- END API -->
+</main>
+</body>
+</html>

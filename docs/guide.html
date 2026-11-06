@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>moontask · guide</title>
+<meta name="description" content="From one task to a queue across processes: tasks, retries, the canvas, the beat, Redis and the management page.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%238a6540'/%3E%3Crect x='7' y='9' width='18' height='13' rx='2' fill='%23fbf7ee'/%3E%3Ccircle cx='16' cy='15.5' r='2.6' fill='%238c3b2f'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./index.html">moontask</a>
+  <nav>
+    <a href="./index.html">Home</a>
+    <a href="./guide.html" aria-current="page">Guide</a>
+    <a href="./api.html">API</a>
+    <a href="./showcase.html">Showcase</a>
+    <a href="https://github.com/moonbitstack/moontask">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <h1>From one task to a queue across processes.</h1>
+  <p class="lede">This walks the library in the order it is used: a task that runs, a worker that runs it, what happens when it fails, what happens after it succeeds, and how to move the whole thing onto a server.</p>
+
+  <ol class="steps">
+    <li>
+      <h2>Install and import</h2>
+      <p>Add the package and import the two names you need first. Time is always a function you pass in: the library never reads the system clock, which is what makes the examples below reproducible.</p>
+      <pre class="sig"><code>moon add moonbitstack/moontask</code></pre>
+      <pre class="sig"><code>import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/spec",
+}</code></pre>
+    </li>
+
+    <li>
+      <h2>An app, a task, a worker</h2>
+      <p>The app owns three things: where messages go (<code>Broker</code>), where results go (<code>Backend</code>), and what counts the parts of a chord (<code>Counter</code>). The in-memory broker is all three at once, which is enough to run the whole library in one process.</p>
+<pre class="sig"><code>let clock : Clock = { at: 1_700_000_000_000L }
+let now = fn() { clock.at }
+let broker = @moontask.MemoryBroker::new(clock=now)
+let app = @moontask.App::new(broker, backend=broker, counter=broker, clock=now)
+
+let greet = app.task("greet", fn(name : String, ctx : @moontask.Context) {
+  "hello \{name}, attempt \{ctx.attempt}"
+})
+
+let worker = app.worker(concurrency=2)
+@async.with_task_group(async fn(group) {
+  group.spawn_bg(async fn() { worker.run() }, no_wait=true)
+  let handle = greet.send("ada")
+  println(handle.get(timeout=5000L))
+  worker.stop()
+})</code></pre>
+      <p>It prints:</p>
+      <pre class="term"><code>hello ada, attempt 1</code></pre>
+    </li>
+
+    <li>
+      <h2>When a run fails</h2>
+      <p>A task body that raises is recorded, not lost. Inside the retry budget the message is published again with an <code>eta</code> computed from the policy's backoff; past the budget the failure is what the store keeps. The spread inside an exponential backoff is derived from the task id, so the same task waits the same on every machine and a test can assert the delay.</p>
+<pre class="sig"><code>let flaky = app.task("flaky", fn(_ : Unit, _) -> Unit raise {
+  attempts.push(1)
+  if attempts.length() &lt; 2 {
+    fail("not yet")
+  }
+}, policy={ ..@moontask.policy, retries: 2, backoff: @moontask.Backoff::Fixed(delay=1000L) })</code></pre>
+      <p>Between the two attempts the handle reports <code>RETRY</code>; once the second attempt returns it reports <code>SUCCESS</code>:</p>
+      <pre class="term"><code>state   RETRY
+state   SUCCESS
+attempts 2</code></pre>
+      <p>The policy also says how long one run may take (<code>timeout</code>), whether the message is confirmed before or after the run (<code>acks_late</code>), whether the result is kept (<code>ignore_result</code>) and how fast the task may go (<code>rate</code>).</p>
+    </li>
+
+    <li>
+      <h2>What happens after a run succeeds</h2>
+      <p>A chain is one message carrying its own tail; a group is several messages published together; a chord counts its parts and sends one callback. The worker that finishes last is the one that advances the canvas, so there is no coordinator to run.</p>
+<pre class="sig"><code>let chained = @moontask.chain([step.sig(1), step.sig(2), step.sig(3)]).send(app)
+println(chained.get(timeout=5000L).stringify())          // 30
+let grouped = @moontask.group([step.sig(4), step.sig(5)]).send(app)
+println(grouped.get(timeout=5000L).stringify())          // [40,50]
+let joined = @moontask.chord([step.sig(1), step.sig(2), step.sig(3)], total.sig([])).send(app)
+println(joined.get(timeout=5000L).stringify())           // 60</code></pre>
+      <p>The chord's callback is sent with the list of part results, in the order the parts were given. A part that fails for good records the callback as failed instead of leaving it pending forever.</p>
+    </li>
+
+    <li>
+      <h2>On a rhythm</h2>
+      <p>A beat sends tasks on a schedule: every interval, on a cron boundary, or once at an instant.</p>
+<pre class="sig"><code>let beat = app.beat()
+beat.add("tick", tick, (), @moontask.Schedule::Every(interval=1000L))
+beat.add("nightly", report, (), @moontask.Schedule::Cron(@cron.parse("0 0 2 * * *")))
+
+group.spawn_bg(async fn() { beat.run() }, no_wait=true)</code></pre>
+      <p>Inside a single process, without a broker, a scheduler runs a job on the same kind of rhythm:</p>
+<pre class="sig"><code>let scheduler = @schedule.Scheduler::new(clock=now)
+scheduler.add(@schedule.every(10).minutes().at(":30").run(fn() { sweep() }))
+scheduler.run()</code></pre>
+      <p>The next run is computed from the run that was due, not from the moment the loop woke, so a loop that was busy for a while does not drag the rhythm with it.</p>
+    </li>
+
+    <li>
+      <h2>Across processes</h2>
+      <p>The Redis module implements the same three contracts, so the app above changes in one line. A queue is a list per name; messages waiting for their eta sit in a sorted set; each consumer keeps what it holds in a list of its own, kept alive by a lease.</p>
+<pre class="sig"><code>let conn = @socket.Connection::connect(@moonredis.ClientOptions::at("127.0.0.1", 6379))
+let broker = @redis.Broker::new(conn, clock=now, consumer="worker-7")
+let app = @moontask.App::new(broker, backend=broker.store(), counter=broker.store(), clock=now)</code></pre>
+      <p>A worker that dies stops refreshing its lease. <code>recover</code> hands the work it was holding back to the queue, which is what makes a killed worker's tasks run again:</p>
+<pre class="sig"><code>println(broker.recover())   // messages moved back to their queues</code></pre>
+    </li>
+
+    <li>
+      <h2>A page over the queue</h2>
+      <p>The management module answers the same questions over HTTP, and is an ASGI application rather than a server of its own, so a server runs it and a framework mounts it.</p>
+<pre class="sig"><code>let admin = @admin.Admin::new(app, inspector=broker)
+let asgi = admin.to_asgi()
+// GET  /                 the page
+// GET  /api/tasks        what is registered, and how each runs
+// GET  /api/queues       ready, delayed and unconfirmed counts
+// GET  /api/results/{id} the state of one run
+// POST /api/tasks/{name} send a run
+// GET  /api/events       a stream of counts</code></pre>
+    </li>
+
+    <li>
+      <h2>Writing a broker</h2>
+      <p>A transport implements <code>Broker</code> and the library runs on it unchanged. Four calls: publish, claim, confirm, reject. The receipt the claim hands back is opaque to the library — a sequence number, a log entry, whatever the transport needs to settle the message later.</p>
+<pre class="sig"><code>pub(open) trait Broker {
+  async fn publish(Self, queue : String, message : Message) -> Unit raise Refused
+  async fn consume(Self, queues : ArrayView[String], prefetch~ : Int32) -> Delivery raise Refused
+  async fn ack(Self, delivery : Delivery) -> Unit raise Refused
+  async fn reject(Self, delivery : Delivery, requeue~ : Bool) -> Unit raise Refused
+}</code></pre>
+    </li>
+  </ol>
+</main>
+
+<footer>
+  <span>moontask · queues and schedules for MoonBit</span>
+  <span><a href="https://github.com/moonbitstack/moontask">Source</a> · <a href="https://mooncakes.io/docs/moonbitstack/moontask">mooncakes</a></span>
+</footer>
+
+<script>
+  const root = document.documentElement;
+  const mark = () => root.classList.toggle("at-top", scrollY === 0);
+  addEventListener("scroll", mark, { passive: true });
+  mark();
+</script>
+</body>
+</html>

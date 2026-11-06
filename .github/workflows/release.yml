@@ -63,6 +63,21 @@ jobs:
           moon update
           moon publish
 
+      # The skill is part of the product: it ships with the version it documents,
+      # and mooncakes serves it to the agents of anyone who installs the package.
+      - name: publish the skill, at the module's version
+        env:
+          CREDENTIALS: ${{ secrets.MOONCAKES_CREDENTIALS }}
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' moon.mod)"
+          trap 'rm -f ~/.moon/credentials.json' EXIT
+          printf '%s' "$CREDENTIALS" > ~/.moon/credentials.json
+          moon update
+          for dir in docs/skills/*/; do
+            [ -f "$dir/SKILL.md" ] || continue
+            moonx moonbit-community/skills --moon-home "$HOME/.moon" publish "$dir" --version "$version"
+          done
+
       # Tell the organisation site a new version exists, so the catalogue it
       # publishes stops needing an edit per release. Without the token the step
       # says so and the site's half-monthly run picks the version up instead.

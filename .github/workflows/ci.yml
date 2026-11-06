@@ -61,3 +61,58 @@ jobs:
       - name: interfaces are up to date
         run: |
           moon info --target all && git diff --exit-code
+
+  # The redis module against a real server. The broker's guarantees are about
+  # what a server does with a list and a sorted set across several consumers, so
+  # this is the only place they are actually checked: a fake would answer the
+  # shapes and none of the questions.
+  redis:
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      MOONTASK_REDIS_LIVE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: post install
+        run: |
+          moon version --all
+          moon update
+
+      - name: the server answers
+        run: |
+          for attempt in $(seq 1 20); do
+            if redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::no redis on 127.0.0.1:6379"
+          exit 1
+
+      - name: moon test (redis module, live server)
+        working-directory: moontask-redis
+        run: |
+          moon check --target native --deny-warn
+          moon test --target native
+
+      - name: lint (fmt is clean)
+        working-directory: moontask-redis
+        run: |
+          moon fmt && git diff --exit-code

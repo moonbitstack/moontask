@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>moontask · queues and schedules for MoonBit</title>
+<meta name="description" content="Task queues, retries, periodic beats and the canvas that chains, groups and joins runs — for MoonBit.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%238a6540'/%3E%3Crect x='7' y='9' width='18' height='13' rx='2' fill='%23fbf7ee'/%3E%3Ccircle cx='16' cy='15.5' r='2.6' fill='%238c3b2f'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./index.html">moontask</a>
+  <nav>
+    <a href="./index.html" aria-current="page">Home</a>
+    <a href="./guide.html">Guide</a>
+    <a href="./api.html">API</a>
+    <a href="./showcase.html">Showcase</a>
+    <a href="https://github.com/moonbitstack/moontask">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Work that outlives the request that asked for it.</h1>
+  <p class="lede">moontask is a task queue for MoonBit: a worker takes a message off a broker and runs it, a beat sends messages on a rhythm, and a chain, group or chord says what happens after. Brokers and result stores are separate modules, so a queue on one process downloads nothing it does not use.</p>
+
+  <section class="desk" aria-label="A desk with a queue tray, task cards, a clock and a chain">
+    <div class="tray">
+      <div class="card" style="--tilt:-2deg"><span class="seal"></span><span class="title">mail.send</span><span class="meta">queue mail · retries 3</span></div>
+      <div class="card retry" style="--tilt:1.4deg"><span class="seal"></span><span class="title">report.build</span><span class="meta">attempt 2 · backoff 4s</span></div>
+      <div class="card ok" style="--tilt:-0.8deg"><span class="seal"></span><span class="title">thumb.render</span><span class="meta">done · 240 ms</span></div>
+    </div>
+    <div class="desk-row">
+      <div class="chain-line" aria-label="A chain of three task cards tied together">
+        <div class="card"><span class="title">fetch</span><span class="meta">step 1</span></div>
+        <span class="link"></span>
+        <div class="card"><span class="title">resize</span><span class="meta">step 2</span></div>
+        <span class="link"></span>
+        <div class="card"><span class="title">publish</span><span class="meta">step 3</span></div>
+      </div>
+      <div class="clock" role="img" aria-label="A clock standing for the beat"></div>
+    </div>
+    <p class="desk-caption">a tray, some cards, a clock, a string</p>
+  </section>
+
+  <div class="grid-3">
+    <div class="tile">
+      <h3>Queues</h3>
+      <p>A worker claims a message, runs it and settles it. A failure inside the retry budget goes back with an <code>eta</code> from the backoff; a success is written to the result store.</p>
+    </div>
+    <div class="tile">
+      <h3>Rhythms</h3>
+      <p>A beat sends tasks every interval, on a cron boundary, or once at an instant. Inside one process, a scheduler runs a job without a broker behind it.</p>
+    </div>
+    <div class="tile">
+      <h3>Canvas</h3>
+      <p>A chain carries its own tail, a chord counts its parts, and whichever worker finishes last advances the whole thing. No coordinator is involved.</p>
+    </div>
+  </div>
+
+  <h2>A first run</h2>
+  <p>An app owns the broker, the store and the counter. A task is a name, a policy and a body; sending one writes a message and hands back a handle that decodes the stored result back into the body's return type.</p>
+
+<pre class="sig"><code>let broker = @moontask.MemoryBroker::new(clock=now)
+let app = @moontask.App::new(broker, backend=broker, counter=broker, clock=now)
+
+let greet = app.task("greet", fn(name : String, ctx : @moontask.Context) {
+  "hello \{name}, attempt \{ctx.attempt}"
+})
+
+let worker = app.worker(concurrency=4)
+@async.with_task_group(async fn(group) {
+  group.spawn_bg(async fn() { worker.run() }, no_wait=true)
+  let handle = greet.send("ada")
+  println(handle.get(timeout=5000L))
+  worker.stop()
+})</code></pre>
+
+  <h2>What it keeps track of</h2>
+  <table class="table">
+    <thead><tr><th>Piece</th><th>What it is</th><th>Where it lives</th></tr></thead>
+    <tbody>
+      <tr><td><code>Broker</code></td><td>Publish, claim, confirm or reject</td><td><code>moontask/spec</code>, implemented by <code>MemoryBroker</code> and <code>moontask-redis</code></td></tr>
+      <tr><td><code>Backend</code></td><td>Store and fetch the outcome of a run</td><td><code>moontask/spec</code></td></tr>
+      <tr><td><code>Counter</code></td><td>Count the parts of a chord</td><td><code>moontask/spec</code></td></tr>
+      <tr><td><code>Inspector</code></td><td>Report what a queue holds</td><td><code>moontask/spec</code>, what a management page reads</td></tr>
+      <tr><td><code>Worker</code></td><td>Take, run, settle, advance</td><td><code>moontask</code></td></tr>
+      <tr><td><code>Beat</code>, <code>Schedule</code></td><td>Send on a rhythm</td><td><code>moontask</code></td></tr>
+      <tr><td><code>Scheduler</code>, <code>Job</code></td><td>Run on a rhythm inside one process</td><td><code>moontask/schedule</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Where it runs</h2>
+  <p>The queue, the beat and the canvas build for native, WebAssembly and JavaScript, with the timer as the only difference. The Redis module is what a queue across several processes runs on; it keeps each consumer's unconfirmed work in a list of its own and hands it back when the consumer's lease runs out.</p>
+</main>
+
+<footer>
+  <span>moontask · queues and schedules for MoonBit</span>
+  <span><a href="https://github.com/moonbitstack/moontask">Source</a> · <a href="https://mooncakes.io/docs/moonbitstack/moontask">mooncakes</a></span>
+</footer>
+
+<script>
+  const root = document.documentElement;
+  const mark = () => root.classList.toggle("at-top", scrollY === 0);
+  addEventListener("scroll", mark, { passive: true });
+  mark();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/wait",
+  "moonbitlang/async",
+}
+
+// The runtime that drives an `async fn main` is native only, so these examples
+// are too. The library they exercise builds for every target.
+
+supported_targets = "native"
+
+pkgtype(kind: "executable")
