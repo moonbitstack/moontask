@@ -39,6 +39,6 @@ description = "Task queues and schedules for MoonBit: workers, retries, periodic
 source = "src"
 
 import {
-  "moonbitstack/moondate@0.1.4",
+  "moonbitstack/moondate@0.1.5",
   "moonbitlang/async@0.22.5",
 }
