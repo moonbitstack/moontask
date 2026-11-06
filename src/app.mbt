@@ -118,6 +118,12 @@ pub fn App::policy_of(self : App, name : String) -> Policy? {
 }
 
 ///|
+/// The result store the app was given, or `None` when it keeps nothing.
+pub fn App::backend_of(self : App) -> &@spec.Backend? {
+  self.backend
+}
+
+///|
 /// Whether a body is registered under `name`.
 pub fn App::has_task(self : App, name : String) -> Bool {
   self.tasks.contains(name)
@@ -132,6 +138,52 @@ pub fn App::task_names(self : App) -> Array[String] {
   }
   names.sort()
   names
+}
+
+///|
+/// Publish a run of the task called `name` with a JSON argument, without a
+/// `Task` value in hand.
+///
+/// This is the entry for a dispatcher that learns the name at run time — an
+/// HTTP handler, a management page, a message from another system — and the
+/// only thing it needs to keep is the name. An unknown name is refused rather
+/// than published, since a queue that accepts work nobody can run only moves the
+/// failure to a worker.
+pub async fn App::send(
+  self : App,
+  name : String,
+  args : Json,
+  eta? : Int64,
+  countdown? : Int64,
+  expires? : Int64,
+  queue? : String,
+  priority? : Int32,
+  id? : String,
+) -> Handle[Json] raise @spec.Refused {
+  let registered = match self.tasks.get(name) {
+    Some(registered) => registered
+    None => raise @spec.Refused::Unknown(name~)
+  }
+  let now = self.now()
+  let eta = match (eta, countdown) {
+    (Some(at), _) => Some(at)
+    (None, Some(delay)) => Some(now + delay)
+    (None, None) => None
+  }
+  let message : @spec.Message = {
+    id: id.unwrap_or(self.next_id(name)),
+    name,
+    args,
+    queue: queue.unwrap_or(registered.policy.queue),
+    priority: priority.unwrap_or(0),
+    eta,
+    expires,
+    retries: 0,
+    chain: [],
+    chord: None,
+  }
+  self.broker.publish(message.queue, message)
+  Handle::of_json(self, [message.id], false)
 }
 
 ///|

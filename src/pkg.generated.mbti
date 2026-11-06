@@ -36,11 +36,13 @@ pub struct App {
   running : Map[String, @async.Task[Result[@json.Json, String]]]
   mut seq : Int32
 }
+pub fn App::backend_of(Self) -> &@spec.Backend?
 pub fn App::beat(Self) -> Beat
 pub fn App::has_task(Self, String) -> Bool
 pub fn App::new(&@spec.Broker, backend? : &@spec.Backend, counter? : &@spec.Counter, clock~ : () -> Int64) -> Self
 pub fn App::now(Self) -> Int64
 pub fn App::policy_of(Self, String) -> Policy?
+pub async fn App::send(Self, String, @json.Json, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -> Handle[@json.Json] raise @spec.Refused
 pub fn[A : @json.FromJson, R : @json.ToJson] App::task(Self, String, async (A, Context) -> R, policy? : Policy) -> Task[A, R]
 pub fn App::task_names(Self) -> Array[String]
 pub fn App::worker(Self, queues? : Array[String], concurrency? : Int32, prefetch? : Int32) -> Worker

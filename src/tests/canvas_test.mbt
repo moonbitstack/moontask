@@ -89,6 +89,31 @@ async test "a chord whose part fails does not send its callback" {
 }
 
 ///|
+async test "a chord waits for every part before it settles the callback" {
+  let manual = Manual::new(1_000_000L)
+  let (app, broker) = app_on(fn() { manual.now() })
+  let quick = app.task("quick", fn(value : Int32, _) { value })
+  let slow = app.task("slow", async fn(_ : Int32, _) { hang() })
+  let fired = []
+  let total = app.task("total", fn(_ : Array[Int32], _) -> Unit {
+    fired.push(1)
+  })
+  let sig = @moontask.chord([quick.sig(1), slow.sig(2)], total.sig([]))
+  let handle = sig.send(app)
+  let callback_id = handle.ids()[0]
+  let worker = app.worker()
+  @async.with_task_group(async fn(group) {
+    group.spawn_bg(async fn() { worker.run() }, no_wait=true)
+    settle(60)
+    // One part is done and one is still running, so the joined callback has
+    // nothing to report yet — in particular it must not be settled as failed.
+    assert_eq(fired.length(), 0)
+    assert_eq(broker.fetch(callback_id), None)
+    worker.stop(grace=1L)
+  })
+}
+
+///|
 async test "a chain of chains is one chain" {
   let manual = Manual::new(1_000_000L)
   let (app, _) = app_on(fn() { manual.now() })

@@ -62,6 +62,14 @@ pub fn State::of(code : StringView) -> State raise Refused {
 }
 
 ///|
+pub impl Show for State with fn output(self, logger) {
+  logger.write_string(self.code())
+}
+
+///|
+pub extend State with Show::{to_string, output}
+
+///|
 /// Whether no further state will follow. A caller waiting for a result stops
 /// here.
 pub fn State::is_final(self : State) -> Bool {
