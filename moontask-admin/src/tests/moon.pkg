@@ -1,0 +1,11 @@
+// The interface driven through ASGI without a socket: the page, the reports,
+// sending, revoking and the event stream.
+import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/spec",
+  "moonbitstack/moontask-admin/admin",
+  "moonbitstack/moonasgi/testing",
+  "moonbitlang/async",
+} for "test"
+
+supported_targets = "native"

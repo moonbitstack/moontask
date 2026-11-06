@@ -1,0 +1,14 @@
+// The management interface: what is queued, what is registered, what a run
+// ended in, and a stream of counts for a page that stays open.
+//
+// It is an ASGI application and nothing more, so a server (mooncat) runs it, a
+// framework (moonapi) mounts it, and a test drives it without a socket.
+import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/spec" @tspec,
+  "moonbitstack/moonasgi/spec",
+  "moonbitstack/moontask/wait",
+  "moonbitstack/moonasgi",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/json",
+}

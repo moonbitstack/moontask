@@ -1,4 +1,5 @@
 members = [
   ".",
   "./moontask-redis",
+  "./moontask-admin",
 ]
