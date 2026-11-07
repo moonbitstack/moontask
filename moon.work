@@ -2,4 +2,6 @@ members = [
   ".",
   "./moontask-redis",
   "./moontask-admin",
+  "./moontask-sql",
+  "./integration/sql-live",
 ]

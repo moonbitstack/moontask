@@ -1,0 +1,18 @@
+// The SQL store against a real PostgreSQL: an outcome written and read back, a
+// run recorded, and a flow whose steps run on a worker while the rows land.
+import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/spec",
+  "moonbitstack/moontask/flow",
+  "moonbitstack/moontask-sql/sql",
+  "moonbitstack/moondb",
+  "moonbitstack/moonpostgres",
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+} for "test"
+
+supported_targets = "native"
+
+// One server, one pair of tables, so the tests must not run at once.
+
+max_concurrent_tests = 1

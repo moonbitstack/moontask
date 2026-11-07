@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moontask-sql/sql"
+
+import {
+  "moonbitstack/moondb",
+  "moonbitstack/moontask/flow",
+  "moonbitstack/moontask/spec",
+}
+
+// Values
+pub let tables : Tables
+
+// Errors
+
+// Types and methods
+pub struct Store {
+  driver : &@moondb.AsyncDriver
+  dialect : @moondb.Dialect
+  clock : () -> Int64
+  tables : Tables
+}
+pub fn Store::dialect(Self) -> @moondb.Dialect
+pub async fn Store::ensure(Self) -> Unit raise @spec.Refused
+pub async fn Store::fetch(Self, String) -> @spec.Outcome? raise @spec.Refused
+pub fn Store::new(&@moondb.AsyncDriver, clock~ : () -> Int64, tables? : Tables) -> Self
+pub async fn Store::record(Self, @flow.Run) -> Unit
+pub async fn Store::runs(Self, String, limit~ : Int32) -> Array[@flow.Run]
+pub async fn Store::store(Self, String, @spec.Outcome) -> Unit raise @spec.Refused
+pub fn Store::tables(Self) -> Tables
+pub impl @flow.Recorder for Store
+pub impl @spec.Backend for Store
+
+pub(all) struct Tables {
+  outcome : String
+  run : String
+}
+
+// Type aliases
+
+// Traits
