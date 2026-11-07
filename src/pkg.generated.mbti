@@ -8,6 +8,7 @@ import {
   "moonbitlang/core/json",
   "moonbitstack/moondate",
   "moonbitstack/moondate/cron",
+  "moonbitstack/moonstate",
   "moonbitstack/moontask/spec",
 }
 
@@ -33,15 +34,18 @@ pub struct App {
   counter : &@spec.Counter?
   clock : () -> Int64
   tasks : Map[String, Registered]
+  routes : Map[String, Wiring]
   running : Map[String, @async.Task[Result[@json.Json, String]]]
   mut seq : Int32
 }
 pub fn App::backend_of(Self) -> &@spec.Backend?
 pub fn App::beat(Self) -> Beat
+pub fn App::executor(Self, queue? : String) -> Dispatch
 pub fn App::has_task(Self, String) -> Bool
 pub fn App::new(&@spec.Broker, backend? : &@spec.Backend, counter? : &@spec.Counter, clock~ : () -> Int64) -> Self
 pub fn App::now(Self) -> Int64
 pub fn App::policy_of(Self, String) -> Policy?
+pub fn App::route(Self, String, String, String, deps? : Array[String]) -> Unit
 pub async fn App::send(Self, String, @json.Json, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -> Handle[@json.Json] raise @spec.Refused
 pub fn[A : @json.FromJson, R : @json.ToJson] App::task(Self, String, async (A, Context) -> R, policy? : Policy) -> Task[A, R]
 pub fn App::task_names(Self) -> Array[String]
@@ -82,6 +86,13 @@ pub(all) struct Context {
 pub fn Context::equal(Self, Self) -> Bool
 pub fn Context::not_equal(Self, Self) -> Bool
 pub fn Context::to_repr(Self) -> @debug.Repr
+
+pub struct Dispatch {
+  app : App
+  queue : String
+}
+pub async fn Dispatch::each(Self, Array[@moonstate.Work]) -> Array[@moonstate.Done]
+pub impl @moonstate.Executor for Dispatch
 
 pub struct Handle[R] {
   app : App
@@ -163,6 +174,7 @@ pub fn Schedule::equal(Self, Self) -> Bool
 pub fn Schedule::first(Self, Int64) -> Int64
 pub fn Schedule::not_equal(Self, Self) -> Bool
 pub fn Schedule::to_repr(Self) -> @debug.Repr
+pub fn Schedule::within(Self, Int64, Int64, limit? : Int32) -> Array[Int64]
 
 #derive(Eq, @debug.Debug)
 pub(all) enum Shape {
@@ -191,6 +203,8 @@ pub fn[A, R] Task::name(Self[A, R]) -> String
 pub fn[A, R] Task::policy(Self[A, R]) -> Policy
 pub async fn[A : @json.ToJson, R : @json.FromJson] Task::send(Self[A, R], A, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -> Handle[R] raise @spec.Refused
 pub fn[A : @json.ToJson, R] Task::sig(Self[A, R], A) -> Sig
+
+type Wiring
 
 pub struct Worker {
   app : App

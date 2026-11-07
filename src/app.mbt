@@ -48,6 +48,9 @@ pub struct App {
   counter : &@spec.Counter?
   clock : () -> Int64
   tasks : Map[String, Registered]
+  /// The task behind a node of a state graph, keyed by graph and node, so a
+  /// workflow's steps can be dispatched by name.
+  routes : Map[String, Wiring]
   /// The tasks a worker is running right now, so `revoke(terminate=true)` can
   /// reach the one that is already going.
   running : Map[String, @async.Task[Result[Json, String]]]
@@ -68,7 +71,16 @@ pub fn App::new(
   counter? : &@spec.Counter,
   clock~ : () -> Int64,
 ) -> App {
-  { broker, backend, counter, clock, tasks: Map([]), running: Map([]), seq: 0, }
+  {
+    broker,
+    backend,
+    counter,
+    clock,
+    tasks: Map([]),
+    routes: Map([]),
+    running: Map([]),
+    seq: 0,
+  }
 }
 
 ///|

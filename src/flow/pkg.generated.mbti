@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moontask/flow"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitstack/moonstate",
+  "moonbitstack/moontask",
+}
+
+// Values
+
+// Errors
+#derive(Eq, @debug.Debug)
+pub(all) suberror Refused {
+  Duplicate(id~ : String)
+  Dangling(node~ : String, dep~ : String)
+  Empty
+  Missing(kind~ : String)
+}
+pub fn Refused::equal(Self, Self) -> Bool
+pub fn Refused::not_equal(Self, Self) -> Bool
+pub fn Refused::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub struct Flow {
+  id : String
+  schedule : @moontask.Schedule?
+  catchup : Bool
+  steps : Array[Step]
+  mut saver : &@moonstate.Saver?
+  mut recorder : &Recorder?
+  mut last : Int64?
+}
+pub async fn Flow::backfill(Self, @moontask.App, start~ : Int64, end~ : Int64) -> Array[Run]
+pub async fn Flow::catchup(Self, @moontask.App, now~ : Int64) -> Array[Run]
+pub fn Flow::deps_of(Self, String) -> Array[String]?
+pub fn Flow::id(Self) -> String
+pub fn Flow::keep(Self, &@moonstate.Saver) -> Unit
+pub fn Flow::new(String, schedule? : @moontask.Schedule, catchup? : Bool) -> Self
+pub fn Flow::record(Self, &Recorder) -> Unit
+pub async fn Flow::run(Self, @moontask.App, Int64, input? : @json.Json) -> Run
+pub fn Flow::schedule(Self) -> @moontask.Schedule?
+pub fn[A, R] Flow::step(Self, String, @moontask.Task[A, R], deps? : Array[String]) -> Unit raise Refused
+pub fn Flow::step_ids(Self) -> Array[String]
+
+pub(all) struct Run {
+  flow : String
+  thread : String
+  at : Int64
+  state : @json.Json
+  status : Status
+}
+pub fn Run::ok(Self) -> Bool
+pub fn Run::output(Self, &Logger) -> Unit
+pub fn Run::output_of(Self, String) -> @json.Json?
+pub fn Run::to_string(Self) -> String
+pub impl Show for Run
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Status {
+  Succeeded
+  Failed(got~ : String)
+}
+pub fn Status::code(Self) -> String
+pub fn Status::equal(Self, Self) -> Bool
+pub fn Status::not_equal(Self, Self) -> Bool
+pub fn Status::of(StringView, got? : String) -> Self
+pub fn Status::to_repr(Self) -> @debug.Repr
+
+type Step
+
+// Type aliases
+
+// Traits
+pub(open) trait Recorder {
+  async fn record(Self, Run) -> Unit
+  async fn runs(Self, String, limit~ : Int32) -> Array[Run]
+}

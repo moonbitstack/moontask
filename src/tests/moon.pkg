@@ -1,6 +1,6 @@
 // Behaviour that only a running event loop can show: workers, retries over time,
-// the canvas advancing across messages, and the beat's clock. The package holds
-// only tests.
+// the canvas advancing across messages, the beat's clock, and a flow's steps
+// running on those workers. The package holds only tests.
 //
 // Native-only because these tests wait, and the WebAssembly targets of the
 // event loop have no timer; everything that does not wait is tested in the
@@ -9,6 +9,8 @@ import {
   "moonbitstack/moontask",
   "moonbitstack/moontask/spec",
   "moonbitstack/moontask/schedule",
+  "moonbitstack/moontask/flow",
+  "moonbitstack/moonstate",
   "moonbitlang/async",
   "moonbitstack/moondate/cron",
 } for "test"

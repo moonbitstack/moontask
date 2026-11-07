@@ -20,6 +20,57 @@ pub extend Schedule with Eq::{not_equal, equal}
 pub extend Schedule with Debug::{to_repr}
 
 ///|
+/// Every instant this schedule names in `[start, end)`, in order, up to `limit`
+/// of them.
+///
+/// This is what a backfill walks: an interval counts from `start`, a cron
+/// expression from the first boundary at or after it, and a one-off instant
+/// only when it falls inside the window. A window that names more instants than
+/// `limit` stops there rather than running for ever.
+pub fn Schedule::within(
+  self : Schedule,
+  start : Int64,
+  end : Int64,
+  limit~ : Int32 = 10000,
+) -> Array[Int64] {
+  let out = []
+  if start >= end || limit <= 0 {
+    return out
+  }
+  match self {
+    Every(interval~) => {
+      if interval <= 0 {
+        return out
+      }
+      let mut at = start
+      while at < end && out.length() < limit {
+        out.push(at)
+        at = at + interval
+      }
+    }
+    At(at~) => if at >= start && at < end { out.push(at) }
+    Cron(expr~) => {
+      // `next` is strict, so the search starts a millisecond before the window
+      // to keep a boundary that lands exactly on `start`.
+      let mut cursor = start - 1L
+      while out.length() < limit {
+        match cron_next(expr, cursor) {
+          Some(at) =>
+            if at >= end {
+              break
+            } else {
+              out.push(at)
+              cursor = at
+            }
+          None => break
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
 /// The first time this schedule fires at or after `now`.
 pub fn Schedule::first(self : Schedule, now : Int64) -> Int64 {
   match self {

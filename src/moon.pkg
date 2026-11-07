@@ -8,6 +8,7 @@ import {
   "moonbitstack/moontask/spec",
   "moonbitstack/moondate",
   "moonbitstack/moondate/cron",
+  "moonbitstack/moonstate",
   "moonbitlang/async",
   "moonbitlang/core/json",
   "moonbitstack/moontask/wait",
