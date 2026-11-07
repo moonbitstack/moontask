@@ -165,8 +165,12 @@ jobs:
 
       - name: both directions on one queue
         run: |
+          set -o pipefail
           bash interop/run_interop.sh | tee "$RUNNER_TEMP/interop-out.txt"
-          grep -q '"status": "SUCCESS"' "$RUNNER_TEMP/interop-out.txt"
+          # A Celery client reads a result this library wrote, and this library
+          # reads one a Celery worker wrote.
+          grep -q 'celery sees cel-A: SUCCESS 42' "$RUNNER_TEMP/interop-out.txt"
+          grep -q '"answered":42' "$RUNNER_TEMP/interop-out.txt"
 
   # The SQL store against a real PostgreSQL. The statements are checked in the
   # module's unit tests; what only a server can say is whether the upsert clause,

@@ -36,3 +36,7 @@ WPID=$!
 sleep 9
 timeout -k 2 35 "$BRIDGE" publish celery 21
 kill -9 $WPID 2>/dev/null; wait $WPID 2>/dev/null
+
+# The worker is killed on purpose, so the wait that reaps it reports the signal.
+# What this script proves is what it printed, and the caller checks that.
+exit 0
