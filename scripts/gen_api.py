@@ -22,6 +22,7 @@ PACKAGES = [
     ("moontask", "src/pkg.generated.mbti", "src"),
     ("moontask/spec", "src/spec/pkg.generated.mbti", "src/spec"),
     ("moontask/schedule", "src/schedule/pkg.generated.mbti", "src/schedule"),
+    ("moontask/flow", "src/flow/pkg.generated.mbti", "src/flow"),
     ("moontask/wait", "src/wait/pkg.generated.mbti", "src/wait"),
 ]
 

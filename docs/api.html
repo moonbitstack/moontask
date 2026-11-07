@@ -50,7 +50,7 @@
 <h3>Types and methods</h3>
 <article class="api-entry">
 <pre class="sig">pub struct App {</pre>
-<ul class="members"><li><code>broker</code><span>&amp;@spec.Broker</span></li><li><code>backend</code><span>&amp;@spec.Backend?</span></li><li><code>counter</code><span>&amp;@spec.Counter?</span></li><li><code>clock</code><span>() -&gt; Int64</span></li><li><code>tasks</code><span>Map[String, Registered]</span></li><li><code>running</code><span>Map[String, @async.Task[Result[@json.Json, String]]]</span></li><li><code>mut seq : Int32</code></li><li><code>}</code></li></ul>
+<ul class="members"><li><code>broker</code><span>&amp;@spec.Broker</span></li><li><code>backend</code><span>&amp;@spec.Backend?</span></li><li><code>counter</code><span>&amp;@spec.Counter?</span></li><li><code>clock</code><span>() -&gt; Int64</span></li><li><code>tasks</code><span>Map[String, Registered]</span></li><li><code>routes</code><span>Map[String, Wiring]</span></li><li><code>running</code><span>Map[String, @async.Task[Result[@json.Json, String]]]</span></li><li><code>mut seq : Int32</code></li><li><code>}</code></li></ul>
 <div class="doc"><p>| The object every other type hangs off.</p>
 <p>It owns the three seams (broker, result store, chord counter), the clock the library reads instead of the system clock, and the registry that turns a message name back into a body. Nothing here is global: two apps in one process do not see each other&#x27;s tasks.</p></div>
 </article>
@@ -61,6 +61,10 @@
 <article class="api-entry">
 <pre class="sig">pub fn App::beat(Self) -&gt; Beat</pre>
 <div class="doc"><p>| A beat on <code>app</code> with nothing scheduled.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::executor(Self, queue? : String) -&gt; Dispatch</pre>
+<div class="doc"><p>| An executor that sends the nodes of a superstep to <code>queue</code> and waits for each result.</p></div>
 </article>
 <article class="api-entry">
 <pre class="sig">pub fn App::has_task(Self, String) -&gt; Bool</pre>
@@ -78,6 +82,11 @@
 <article class="api-entry">
 <pre class="sig">pub fn App::policy_of(Self, String) -&gt; Policy?</pre>
 <div class="doc"><p>| The policy registered under <code>name</code>, or <code>None</code> when nobody registered it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn App::route(Self, String, String, String, deps? : Array[String]) -&gt; Unit</pre>
+<div class="doc"><p>| Record that <code>node</code> of <code>graph</code> runs the task <code>task</code>, and reads <code>deps</code>.</p>
+<p>A flow registers this for every step it holds, which is how an executor — in this process or in another — finds the body behind a node name.</p></div>
 </article>
 <article class="api-entry">
 <pre class="sig">pub async fn App::send(Self, String, @json.Json, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -&gt; Handle[@json.Json] raise @spec.Refused</pre>
@@ -140,6 +149,19 @@
 </article>
 <article class="api-entry">
 <pre class="sig">pub fn Context::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub struct Dispatch {</pre>
+<ul class="members"><li><code>app</code><span>App</span></li><li><code>queue</code><span>String</span></li><li><code>}</code></li></ul>
+<div class="doc"><p>| The executor a state graph runs on: every work item of a superstep becomes a queue message, and what comes back is the write that step contributes.</p>
+<p>A graph keeps the order, the durability and the retry policy of a run; this only decides where a node&#x27;s body runs. Here it runs on the workers, so a workflow outlives the process that started it.</p>
+<p>Which task a node runs, and what it is called with, is the app&#x27;s route for its graph and node, which is what a flow registers: a node that waits for nothing is called with the run&#x27;s input, and a node that waits for others with an object of their answers under their ids. A node with no route writes nothing, and a graph with several roots uses one such node as its entry.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Dispatch::each(Self, Array[@moonstate.Work]) -&gt; Array[@moonstate.Done]</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl @moonstate.Executor for Dispatch</pre>
 </article>
 <article class="api-entry">
 <pre class="sig">pub struct Handle[R] {</pre>
@@ -261,6 +283,11 @@
 </article>
 <article class="api-entry">
 <pre class="sig">pub fn Schedule::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Schedule::within(Self, Int64, Int64, limit? : Int32) -&gt; Array[Int64]</pre>
+<div class="doc"><p>| Every instant this schedule names in <code>[start, end)</code>, in order, up to <code>limit</code> of them.</p>
+<p>This is what a backfill walks: an interval counts from <code>start</code>, a cron expression from the first boundary at or after it, and a one-off instant only when it falls inside the window. A window that names more instants than <code>limit</code> stops there rather than running for ever.</p></div>
 </article>
 <article class="api-entry">
 <pre class="sig">pub fn Shape::equal(Self, Self) -&gt; Bool</pre>
@@ -613,6 +640,104 @@
 <article class="api-entry">
 <pre class="sig">pub fn Scheduler::stop(Self) -&gt; Unit</pre>
 <div class="doc"><p>| Stop after the run in progress. The loop wakes at least every 50 milliseconds, so this takes effect promptly even with nothing scheduled.</p></div>
+</article>
+</section>
+<section class="api-package" id="pkg-moontask-flow">
+<h2>moontask/flow</h2>
+<h3>Errors</h3>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Refused::to_repr(Self) -&gt; @debug.Repr</pre>
+</article>
+<h3>Types and methods</h3>
+<article class="api-entry">
+<pre class="sig">pub struct Flow {</pre>
+<ul class="members"><li><code>id</code><span>String</span></li><li><code>schedule</code><span>@moontask.Schedule?</span></li><li><code>catchup</code><span>Bool</span></li><li><code>steps</code><span>Array[Step]</span></li><li><code>mut saver : &amp;@moonstate.Saver?</code></li><li><code>mut recorder : &amp;Recorder?</code></li><li><code>mut last : Int64?</code></li><li><code>}</code></li></ul>
+<div class="doc"><p>| A workflow.</p>
+<p>The order of the steps is the order they were registered, and the graph is derived from it: a step runs once every step it waits for has answered, and steps that wait for nothing run together. What each step answers is kept in the run&#x27;s state, keyed by its id, and a step that waits for others is called with an object of their answers — under their ids — as its argument.</p>
+<p>A flow does not run anything itself: <code>run</code> hands the steps to an app&#x27;s workers, and the graph that orders them is a state graph, so a run that stops halfway can be resumed where it stopped.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Flow::backfill(Self, @moontask.App, start~ : Int64, end~ : Int64) -&gt; Array[Run]</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Flow::catchup(Self, @moontask.App, now~ : Int64) -&gt; Array[Run]</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::deps_of(Self, String) -&gt; Array[String]?</pre>
+<div class="doc"><p>| What <code>id</code> waits for, or <code>None</code> when no step goes by that name.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::id(Self) -&gt; String</pre>
+<div class="doc"><p>| The name the graph and the run records go by.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::keep(Self, &amp;@moonstate.Saver) -&gt; Unit</pre>
+<div class="doc"><p>| Keep a checkpoint of the run after every superstep, so a run that stops can be resumed at the step it stopped on. Without one a run is only as durable as the messages in the broker.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::new(String, schedule? : @moontask.Schedule, catchup? : Bool) -&gt; Self</pre>
+<div class="doc"><p>| A flow named <code>id</code>.</p>
+<p><code>schedule</code> makes it a periodic flow: <code>backfill</code> walks the instants the schedule names, and <code>catchup</code> fills the ones a late start skipped. <code>catchup</code> is whether <code>run</code> fills that gap by itself, which needs to know the previous instant — from this object, or from the recorder when there is one.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::record(Self, &amp;Recorder) -&gt; Unit</pre>
+<div class="doc"><p>| Write every run this flow ends to <code>recorder</code>.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub async fn Flow::run(Self, @moontask.App, Int64, input? : @json.Json) -&gt; Run</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::schedule(Self) -&gt; @moontask.Schedule?</pre>
+<div class="doc"><p>| When this flow is due, or <code>None</code> for one that runs only when asked.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A, R] Flow::step(Self, String, @moontask.Task[A, R], deps? : Array[String]) -&gt; Unit raise Refused</pre>
+<div class="doc"><p>| Add <code>task</code> as the step <code>id</code>, waiting for <code>deps</code>.</p>
+<p>The argument each step is called with is the run&#x27;s input when it waits for nothing, and an object of its dependencies&#x27; answers — keyed by their ids — when it does. Both cross the queue as JSON, so a step is a task like any other and runs wherever a worker picks it up.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Flow::step_ids(Self) -&gt; Array[String]</pre>
+<div class="doc"><p>| The steps in the order they were registered.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Run::ok(Self) -&gt; Bool</pre>
+<div class="doc"><p>| Whether every step of the run settled.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Run::output(Self, &amp;Logger) -&gt; Unit</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Run::output_of(Self, String) -&gt; @json.Json?</pre>
+<div class="doc"><p>| The value <code>step</code> answered, or <code>None</code> when the run has not reached it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Run::to_string(Self) -&gt; String</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub impl Show for Run</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Status::code(Self) -&gt; String</pre>
+<div class="doc"><p>| The label a record carries. These are the words a table and a page show, so a run written by one process reads back as the same thing in another.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Status::equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Status::not_equal(Self, Self) -&gt; Bool</pre>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Status::of(StringView, got? : String) -&gt; Self</pre>
+<div class="doc"><p>| The status a label names, with the message a failure carries.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn Status::to_repr(Self) -&gt; @debug.Repr</pre>
 </article>
 </section>
 <section class="api-package" id="pkg-moontask-wait">
