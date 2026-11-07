@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The floor — a figure of moontask</title>
+<style>
+  /* The figure reads the same palette as the site: one set of names, three ways
+     of choosing them (system dark, an explicit light, an explicit dark), so the
+     drawing turns with the page instead of sitting on it as a light rectangle. */
+  :root {
+    --paper: #efe9dd;
+    --paper-2: #e3dbcb;
+    --ink: #23201b;
+    --ink-2: #5f584c;
+    --line: #cabfa8;
+    --wood: #8a6540;
+    --wood-dark: #6b4c2e;
+    --brass: #b1862f;
+    --seal: #8c3b2f;
+    --green: #3f6b4a;
+    --card: #fbf7ee;
+    --card-face: #fbf7ee;
+    --table: #cbb18b;
+    --table-edge: #a98d68;
+    --steel: #b9bdb8;
+    --steel-edge: #8d938e;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16140f;
+      --paper-2: #1d1a14;
+      --ink: #ece6d8;
+      --ink-2: #a89e8b;
+      --line: #3a342a;
+      --wood: #6a4a2c;
+      --wood-dark: #3f2c1a;
+      --brass: #d3a952;
+      --seal: #b4574a;
+      --green: #7fae8b;
+      --card: #2a261e;
+      --card-face: #efe4c9;
+      --table: #6b4a2b;
+      --table-edge: #4a3320;
+      --steel: #565f5c;
+      --steel-edge: #3c4341;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #16140f;
+    --paper-2: #1d1a14;
+    --ink: #ece6d8;
+    --ink-2: #a89e8b;
+    --line: #3a342a;
+    --wood: #6a4a2c;
+    --wood-dark: #3f2c1a;
+    --brass: #d3a952;
+    --seal: #b4574a;
+    --green: #7fae8b;
+    --card: #2a261e;
+    --card-face: #efe4c9;
+    --table: #6b4a2b;
+    --table-edge: #4a3320;
+    --steel: #565f5c;
+    --steel-edge: #3c4341;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font: 13px/1.4 ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #stage { flex: 1 1 auto; position: relative; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  .hud {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 14px 9px;
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--paper) 88%, var(--paper-2));
+  }
+  .hud .spacer { flex: 1 1 auto; }
+  button {
+    font: inherit;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--card) 70%, var(--paper));
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 10px 4px;
+    cursor: pointer;
+  }
+  button:hover { border-color: color-mix(in srgb, var(--ink) 40%, var(--line)); }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  output { color: var(--ink-2); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: .02em; }
+  .key { color: var(--ink-2); font-size: 11px; }
+  .key i { font-style: normal; font-family: ui-monospace, Menlo, Consolas, monospace; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="floor"></canvas></div>
+<div class="hud">
+  <button id="play" type="button" aria-pressed="true">Pause</button>
+  <button id="again" type="button">Replay</button>
+  <button id="slow" type="button">Slow</button>
+  <output id="clock">00:00</output>
+  <span class="spacer"></span>
+  <span class="key">drag to turn · <i>space</i> to pause</span>
+</div>
+
+<script src="floor-data.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---- palette ---------------------------------------------------------- */
+
+  var css = getComputedStyle(document.documentElement);
+  function colour(name, fallback) {
+    var v = css.getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  var PAL = {};
+  function readPalette() {
+    css = getComputedStyle(document.documentElement);
+    PAL = {
+      paper: colour("--paper", "#efe9dd"),
+      ink: colour("--ink", "#23201b"),
+      ink2: colour("--ink-2", "#5f584c"),
+      line: colour("--line", "#cabfa8"),
+      wood: colour("--wood", "#8a6540"),
+      woodDark: colour("--wood-dark", "#6b4c2e"),
+      brass: colour("--brass", "#b1862f"),
+      seal: colour("--seal", "#8c3b2f"),
+      green: colour("--green", "#3f6b4a"),
+      card: colour("--card-face", "#fbf7ee"),
+      table: colour("--table", "#cbb18b"),
+      tableEdge: colour("--table-edge", "#a98d68"),
+      steel: colour("--steel", "#b9bdb8"),
+      steelEdge: colour("--steel-edge", "#8d938e")
+    };
+  }
+  readPalette();
+
+  /* ---- a small 3d: points, a camera, boxes ------------------------------- */
+
+  var cam = { yaw: -0.55, pitch: 0.58, dist: 16.5, fov: 1050, target: { x: 0.35, y: 0.85, z: 0.2 } };
+  var view = {};
+
+  // A camera on a sphere around the target: yaw swings it round, pitch lifts it,
+  // and the basis is rebuilt every frame so the projection and the depth sort
+  // can never disagree about where the camera is.
+  function prepare() {
+    var cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    var cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    var eye = {
+      x: cam.target.x + cam.dist * sy * cp,
+      y: cam.target.y + cam.dist * sp,
+      z: cam.target.z + cam.dist * cy * cp
+    };
+    var fx = cam.target.x - eye.x, fy = cam.target.y - eye.y, fz = cam.target.z - eye.z;
+    var fl = Math.sqrt(fx * fx + fy * fy + fz * fz) || 1;
+    fx /= fl; fy /= fl; fz /= fl;
+    // right = forward x up, with up = (0,1,0)
+    var rx = -fz, ry = 0, rz = fx;
+    var rl = Math.sqrt(rx * rx + rz * rz) || 1;
+    rx /= rl; rz /= rl;
+    // up' = right x forward
+    var ux = ry * fz - rz * fy;
+    var uy = rz * fx - rx * fz;
+    var uz = rx * fy - ry * fx;
+    view.eye = eye;
+    view.f = [fx, fy, fz];
+    view.r = [rx, ry, rz];
+    view.u = [ux, uy, uz];
+  }
+
+  // World -> screen, with the camera-space depth kept for the painter's
+  // algorithm.
+  function project(x, y, z) {
+    var vx = x - view.eye.x, vy = y - view.eye.y, vz = z - view.eye.z;
+    var depth = vx * view.f[0] + vy * view.f[1] + vz * view.f[2];
+    if (depth < 0.2) depth = 0.2;
+    var sx = vx * view.r[0] + vy * view.r[1] + vz * view.r[2];
+    var sy = vx * view.u[0] + vy * view.u[1] + vz * view.u[2];
+    var k = cam.fov / depth;
+    return { x: W / 2 + sx * k, y: H / 2 - sy * k, d: depth };
+  }
+
+  var faces = [];
+  function quad(points, fill, stroke, alpha) {
+    var pts = points.map(function (p) { return project(p[0], p[1], p[2]); });
+    var depth = 0;
+    for (var i = 0; i < pts.length; i++) depth += pts[i].d;
+    faces.push({ pts: pts, fill: fill, stroke: stroke, alpha: alpha === undefined ? 1 : alpha, d: depth / pts.length });
+  }
+
+  // A box with an optional rotation around its own vertical axis: eight corners,
+  // six faces, each shaded by how much it faces the light.
+  function box(cx, cy, cz, w, h, d, fill, yaw, alpha) {
+    yaw = yaw || 0;
+    var hw = w / 2, hh = h / 2, hd = d / 2;
+    var cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
+    function corner(sx, sy, sz) {
+      var x = sx * hw, z = sz * hd;
+      return [cx + x * cyaw - z * syaw, cy + sy * hh, cz + x * syaw + z * cyaw];
+    }
+    var c = [
+      corner(-1, -1, -1), corner(1, -1, -1), corner(1, -1, 1), corner(-1, -1, 1),
+      corner(-1, 1, -1), corner(1, 1, -1), corner(1, 1, 1), corner(-1, 1, 1)
+    ];
+    var L = [-0.42, 0.82, 0.38];
+    function shade(nx, ny, nz) {
+      var lit = nx * L[0] + ny * L[1] + nz * L[2];
+      var f = 0.78 + 0.30 * Math.max(0, lit) - 0.10 * Math.max(0, -lit);
+      return tint(fill, f, alpha);
+    }
+    // All six faces go in and the painter's algorithm decides: on a convex box
+    // the faces nearest the camera are drawn last and cover the ones behind, so
+    // no culling test is needed and none can be wrong.
+    function face(a, b, e, f, n) {
+      quad([c[a], c[b], c[e], c[f]], shade(n[0], n[1], n[2]));
+    }
+    face(4, 5, 6, 7, [0, 1, 0]);
+    face(0, 1, 2, 3, [0, -1, 0]);
+    face(0, 3, 7, 4, [-cyaw, 0, -syaw]);
+    face(1, 5, 6, 2, [cyaw, 0, syaw]);
+    face(0, 4, 5, 1, [syaw, 0, -cyaw]);
+    face(3, 2, 6, 7, [-syaw, 0, cyaw]);
+  }
+
+  function tint(hex, f, alpha) {
+    var c = hex.replace("#", "");
+    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    var r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16);
+    function cl(v) { return Math.max(0, Math.min(255, Math.round(v * f))); }
+    return "rgba(" + cl(r) + "," + cl(g) + "," + cl(b) + "," + (alpha === undefined ? 1 : alpha) + ")";
+  }
+
+  /* ---- the floor -------------------------------------------------------- */
+
+  var CARDS = 6;
+  var rackSlots = [];
+  for (var s = 0; s < CARDS; s++) rackSlots.push({ x: 1.15 + s * 0.62, z: 1.72, y: 2.06 });
+
+  var hopperSlots = [];
+  for (var h = 0; h < 5; h++) hopperSlots.push({ x: -3.35, z: -0.35, y: 0.42 + h * 0.07 });
+
+  var pressX = 0.35, pressZ = -0.1;
+
+  function drawFloor(t) {
+    // table
+    box(0, 0.16, 0.2, 9.6, 0.32, 5.6, PAL.table);
+    // table apron, so the slab reads as furniture rather than a plane
+    box(0, -0.16, 0.2, 9.2, 0.30, 5.2, PAL.tableEdge);
+
+    // hopper: a shallow open tray, four walls and a floor
+    box(-3.35, 0.32, -0.35, 2.5, 0.10, 2.0, PAL.wood);
+    box(-4.58, 0.56, -0.35, 0.10, 0.52, 2.0, PAL.wood);
+    box(-2.12, 0.56, -0.35, 0.10, 0.52, 2.0, PAL.wood);
+    box(-3.35, 0.56, -1.32, 2.5, 0.52, 0.10, PAL.wood);
+    box(-3.35, 0.56, 0.62, 2.5, 0.52, 0.10, PAL.wood);
+
+    // the press: a bed plate, four posts, a crossbar, and the head that comes
+    // down on the card
+    box(pressX, 0.40, pressZ, 2.0, 0.14, 1.5, PAL.steelEdge);
+    box(pressX - 0.80, 1.55, pressZ - 0.60, 0.13, 2.4, 0.13, PAL.steel);
+    box(pressX - 0.80, 1.55, pressZ + 0.60, 0.13, 2.4, 0.13, PAL.steel);
+    box(pressX + 0.80, 1.55, pressZ - 0.60, 0.13, 2.4, 0.13, PAL.steel);
+    box(pressX + 0.80, 1.55, pressZ + 0.60, 0.13, 2.4, 0.13, PAL.steel);
+    box(pressX, 2.72, pressZ, 1.78, 0.16, 1.42, PAL.steel);
+    // the ram, then the head, which is what the card sees
+    box(pressX, 2.40 - press.lift * 0.5, pressZ, 0.30, 0.60, 0.30, PAL.steelEdge);
+    var headY = 1.98 - press.lift;
+    box(pressX, headY, pressZ, 1.36, 0.22, 1.04, PAL.brass);
+    box(pressX, headY - 0.17, pressZ, 1.04, 0.14, 0.76, PAL.seal);
+
+    // the line: two posts, a rail the finished cards hang from, and a board
+    box(0.95, 1.30, 1.72, 0.12, 2.4, 0.12, PAL.steel);
+    box(4.55, 1.30, 1.72, 0.12, 2.4, 0.12, PAL.steel);
+    box(2.75, 2.42, 1.72, 3.72, 0.10, 0.10, PAL.steel);
+    box(2.75, 0.44, 1.72, 3.72, 0.14, 0.70, PAL.wood);
+
+    // the return lane: a rail behind the press, back to the tray
+    box(-1.35, 0.72, 1.55, 4.2, 0.08, 0.45, PAL.woodDark);
+
+    // the bin for a revoked card
+    box(-2.05, 0.44, 2.15, 1.1, 0.5, 0.9, PAL.woodDark);
+
+    // the clock: a brass dial on a post, with a hand that goes round once a
+    // logical second
+    box(-4.25, 0.72, -1.95, 0.09, 1.4, 0.09, PAL.steel);
+    var dialY = 1.52, dialX = -4.25, dialZ = -1.95;
+    var dial = [];
+    for (var k = 0; k < 8; k++) {
+      var a = Math.PI / 8 + k * Math.PI / 4;
+      dial.push([dialX + Math.cos(a) * 0.46, dialY + Math.sin(a) * 0.46, dialZ + 0.06]);
+    }
+    quad(dial, tint(PAL.brass, 0.96), PAL.ink, 1);
+    var hand = (t / 1000 % 1) * Math.PI * 2 - Math.PI / 2;
+    var hx = Math.cos(hand) * 0.30, hy = Math.sin(hand) * 0.30;
+    var nx = -Math.sin(hand) * 0.035, ny = Math.cos(hand) * 0.035;
+    quad([
+      [dialX - nx, dialY - ny, dialZ + 0.08],
+      [dialX + nx, dialY + ny, dialZ + 0.08],
+      [dialX + hx + nx, dialY + hy + ny, dialZ + 0.08],
+      [dialX + hx - nx, dialY + hy - ny, dialZ + 0.08]
+    ], tint(PAL.seal, 0.9), PAL.seal, 0.95);
+  }
+
+  /* ---- the run the page replays ----------------------------------------- */
+
+  var press = { lift: 0 };
+  var cards = [];
+  var settled = 0, retries = 0, revoked = 0;
+
+  // A card's whole life is a function of the recording and the clock: the event
+  // that made it, the event that settled it, and how long that settle takes to
+  // play. Nothing is kept between frames, so a still of any instant is the same
+  // picture as watching it arrive.
+  var TRAY = { x: -3.35, z: -0.35, y: 0.42 };
+  var STAMP = { x: 0.35, z: -0.1, y: 0.52 };
+  var BIN = { x: -2.05, z: 2.15, y: 0.55 };
+  var SUCCESS_MS = 1500, RETRY_MS = 1650, REVOKE_MS = 900;
+
+  function cardFor(id, index) {
+    // a card that has settled hangs where it settled, until the recording ends
+    for (var i = 0; i < cards.length; i++) if (cards[i].id === id) return cards[i];
+    var card = {
+      id: id, index: index, from: 0, settle: null, place: 0,
+      x: TRAY.x, y: TRAY.y, z: TRAY.z, alpha: 0, tag: null
+    };
+    cards.push(card);
+    return card;
+  }
+
+  function applyEvent(event, at) {
+    var card = cardFor(event.id, event.card);
+    if (event.kind === "publish") {
+      card.from = at;
+    } else if (event.kind === "success") {
+      card.settle = { kind: "success", at: at };
+      card.place = settled;
+      settled += 1;
+    } else if (event.kind === "retry") {
+      card.settle = { kind: "retry", at: at };
+      retries += 1;
+    } else if (event.kind === "revoked") {
+      card.settle = { kind: "revoked", at: at };
+      revoked += 1;
+    }
+  }
+
+  function ease(p) {
+    return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+  }
+
+  function lerp(a, b, k) { return a + (b - a) * k; }
+
+  // Where every card stands at `now`, in animation milliseconds.
+  function placeCards(now) {
+    // the tray stacks: a card's place is how many are still waiting ahead of it
+    var waiting = 0;
+    press.lift = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var age = now - card.from;
+      if (age < 0) { card.alpha = 0; continue; }
+      card.alpha = Math.min(1, age / 240);
+      card.tag = null;
+      var trayY = TRAY.y + Math.min(waiting, 4) * 0.07;
+      if (!card.settle) {
+        card.x = TRAY.x; card.z = TRAY.z; card.y = trayY;
+        waiting += 1;
+        continue;
+      }
+      var kind = card.settle.kind;
+      var span = kind === "success" ? SUCCESS_MS : kind === "retry" ? RETRY_MS : REVOKE_MS;
+      var p = (now - card.settle.at) / span;
+      if (p <= 0) {
+        card.x = TRAY.x; card.z = TRAY.z; card.y = trayY;
+        waiting += 1;
+        continue;
+      }
+      if (p >= 1) p = 1;
+
+      if (kind === "revoked") {
+        var e0 = ease(p);
+        card.x = lerp(TRAY.x, BIN.x, e0);
+        card.z = lerp(TRAY.z, BIN.z, e0);
+        card.y = TRAY.y + 0.5 * Math.sin(Math.PI * e0);
+        card.alpha = 1 - 0.85 * e0;
+        continue;
+      }
+
+      var slot = rackSlots[Math.min(card.place, rackSlots.length - 1)];
+      if (p < 0.4) {
+        // out of the tray and onto the bed of the press
+        var k1 = ease(p / 0.4);
+        card.x = lerp(TRAY.x, STAMP.x, k1);
+        card.z = lerp(TRAY.z, STAMP.z, k1);
+        card.y = lerp(trayY, STAMP.y, k1) + 0.18 * Math.sin(Math.PI * k1);
+      } else if (p < 0.66) {
+        // held under the head: this is the stamp
+        var k2 = (p - 0.4) / 0.26;
+        card.x = STAMP.x; card.z = STAMP.z; card.y = STAMP.y;
+        press.lift = 0.40 * Math.sin(Math.PI * Math.min(1, k2));
+        if (k2 > 0.45) card.tag = kind === "success" ? "success" : "retry";
+      } else if (kind === "success") {
+        var k3 = ease((p - 0.66) / 0.34);
+        card.x = lerp(STAMP.x, slot.x, k3);
+        card.z = lerp(STAMP.z, slot.z, k3);
+        card.y = lerp(STAMP.y, slot.y, k3) + 0.55 * Math.sin(Math.PI * k3);
+        card.tag = "success";
+      } else {
+        // back along the return rail, into the tray
+        var k4 = ease((p - 0.66) / 0.34);
+        card.x = lerp(STAMP.x, TRAY.x, k4);
+        card.z = k4 < 0.5
+          ? lerp(STAMP.z, 1.5, k4 * 2)
+          : lerp(1.5, TRAY.z, (k4 - 0.5) * 2);
+        card.y = lerp(STAMP.y, TRAY.y, k4) + 0.35 * Math.sin(Math.PI * k4);
+        card.tag = k4 < 0.85 ? "retry" : null;
+      }
+
+      if (p >= 1) {
+        if (kind === "success") {
+          card.x = slot.x; card.z = slot.z; card.y = slot.y;
+          card.hung = true;
+          card.tag = "success";
+        } else {
+          card.x = TRAY.x; card.z = TRAY.z; card.y = trayY;
+          waiting += 1;
+        }
+      }
+    }
+  }
+
+  function drawCard(card) {
+    if (card.alpha <= 0.02) return;
+    if (card.hung) {
+      // on the line a card hangs: a plate seen face on, its tag along the bottom
+      box(card.x, card.y, card.z, 0.52, 0.46, 0.04, PAL.card, 0, card.alpha);
+      if (card.tag) {
+        var tag = card.tag === "success" ? PAL.green : PAL.seal;
+        quad([
+          [card.x - 0.13, card.y - 0.16, card.z + 0.025],
+          [card.x + 0.13, card.y - 0.16, card.z + 0.025],
+          [card.x + 0.13, card.y - 0.03, card.z + 0.025],
+          [card.x - 0.13, card.y - 0.03, card.z + 0.025]
+        ], tag, tag, card.alpha);
+      }
+      return;
+    }
+    box(card.x, card.y, card.z, 0.72, 0.05, 0.5, PAL.card, 0, card.alpha);
+    if (card.tag) {
+      var stamp = card.tag === "success" ? PAL.green : PAL.seal;
+      quad([
+        [card.x - 0.16, card.y + 0.028, card.z - 0.10],
+        [card.x + 0.16, card.y + 0.028, card.z - 0.10],
+        [card.x + 0.16, card.y + 0.028, card.z + 0.02],
+        [card.x - 0.16, card.y + 0.028, card.z + 0.02]
+      ], stamp, stamp, card.alpha);
+    }
+  }
+
+  /* ---- playback --------------------------------------------------------- */
+
+  var canvas = document.getElementById("floor");
+  var ctx = canvas.getContext("2d");
+  var W = 0, H = 0, dpr = 1;
+
+  function resize() {
+    var r = canvas.parentElement.getBoundingClientRect();
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.max(320, Math.round(r.width));
+    H = Math.max(240, Math.round(r.height));
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  var data = { events: [] };
+  var base = 0, span = 1;
+  var clockMs = 0, playing = true, speed = 1, last = 0;
+  var next = 0;
+  var started = false;
+
+  function load(err) {
+    if (err) { document.getElementById("clock").textContent = "no recording"; return; }
+    base = data.events[0].at;
+    span = data.events[data.events.length - 1].at - base;
+    started = true;
+  }
+
+  // The recording is a script, not a fetch: a figure opened straight from disk
+  // has to draw too, and a browser refuses to fetch a sibling file over file://.
+  (function () {
+    var bundled = window.FLOOR;
+    if (!bundled || !bundled.events || !bundled.events.length) { load(true); return; }
+    data = bundled;
+    load(null);
+  })();
+
+  // A still at a chosen point of the recording: ?at=<ms>&steps=<frames> seeks
+  // the clock and runs the cards forward, which is how a screenshot of the page
+  // can be taken without waiting for the animation to get there.
+  function seek(ms, frames) {
+    clockMs = ms;
+    while (next < data.events.length) {
+      var ev = data.events[next];
+      var due = (ev.at - base) * 0.9 + next * 260;
+      if (due > clockMs) break;
+      applyEvent(ev, due);
+      next += 1;
+    }
+    playing = false;
+    setPlay(false);
+  }
+
+  function replay() {
+    cards.length = 0;
+    next = 0; clockMs = 0; settled = 0; retries = 0; revoked = 0;
+    press.lift = 0; press.busy = 0; pressure = 0;
+    playing = true; setPlay(true);
+  }
+
+  function setPlay(on) {
+    playing = on;
+    var b = document.getElementById("play");
+    b.textContent = on ? "Pause" : "Play";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  document.getElementById("play").addEventListener("click", function () { setPlay(!playing); });
+  document.getElementById("again").addEventListener("click", replay);
+  document.getElementById("slow").addEventListener("click", function () {
+    speed = speed === 1 ? 0.45 : 1;
+    this.textContent = speed === 1 ? "Slow" : "Normal";
+  });
+  addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); setPlay(!playing); }
+  });
+
+  // drag to turn, wheel to zoom
+  var drag = null;
+  canvas.addEventListener("pointerdown", function (e) {
+    drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch };
+    canvas.setPointerCapture(e.pointerId);
+    canvas.classList.add("dragging");
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    cam.yaw = drag.yaw + (e.clientX - drag.x) * 0.006;
+    cam.pitch = Math.max(0.18, Math.min(1.05, drag.pitch - (e.clientY - drag.y) * 0.005));
+  });
+  canvas.addEventListener("pointerup", function () {
+    drag = null;
+    canvas.classList.remove("dragging");
+  });
+  canvas.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    cam.dist = Math.max(9, Math.min(26, cam.dist + e.deltaY * 0.012));
+  }, { passive: false });
+
+  addEventListener("resize", resize);
+
+  // A reader who asked for less motion gets the same picture, held still.
+  var calm = matchMedia("(prefers-reduced-motion: reduce)");
+  var forced = /(?:^|[?&])play(=1)?(?:&|$)/.test(location.search);
+  if (calm.matches && !forced) setPlay(false);
+  calm.addEventListener("change", function () { if (calm.matches) setPlay(false); });
+
+  addEventListener("storage", function (e) {
+    if (e.key !== "moontask-theme") return;
+    if (e.newValue === "light" || e.newValue === "dark") {
+      document.documentElement.setAttribute("data-theme", e.newValue);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+    readPalette();
+  });
+
+  function frame(now) {
+    if (!last) last = now;
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (started && playing) {
+      clockMs += dt * 1000 * speed;
+      while (next < data.events.length) {
+        var ev = data.events[next];
+        // the recording's own clock, spaced so a burst still reads as a sequence
+        var due = (ev.at - base) * 0.9 + next * 260;
+        if (due > clockMs) break;
+        applyEvent(ev, due);
+        next += 1;
+      }
+      if (clockMs > span * 0.9 + data.events.length * 260 + 6000) {
+        clockMs = 0; next = 0;
+      }
+    }
+    if (started) {
+      var seconds = Math.floor(clockMs / 1000);
+      document.getElementById("clock").textContent =
+        (seconds < 10 ? "0" : "") + seconds + "." + Math.floor((clockMs % 1000) / 100) +
+        "  " + cards.length + " cards";
+    }
+
+    prepare();
+    faces.length = 0;
+    ctx.clearRect(0, 0, W, H);
+
+    // a soft ground shadow, so the object sits on the page
+    var g = ctx.createRadialGradient(W / 2, H * 0.72, 40, W / 2, H * 0.72, Math.max(W, H) * 0.62);
+    g.addColorStop(0, "rgba(0,0,0,0.10)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    drawFloor(clockMs);
+
+    // cards, sorted with everything else by depth
+    placeCards(clockMs);
+    for (var i = 0; i < cards.length; i++) drawCard(cards[i]);
+
+    faces.sort(function (a, b) { return b.d - a.d; });
+    ctx.lineJoin = "round";
+    for (var f = 0; f < faces.length; f++) {
+      var face = faces[f];
+      if (face.text) {
+        ctx.save();
+        ctx.globalAlpha = 0.78;
+        ctx.fillStyle = PAL.ink2;
+        ctx.font = "10px ui-serif, Georgia, serif";
+        ctx.letterSpacing = "0.14em";
+        ctx.textAlign = "center";
+        ctx.fillText(face.text, face.x, face.y);
+        ctx.restore();
+        continue;
+      }
+      ctx.beginPath();
+      ctx.moveTo(face.pts[0].x, face.pts[0].y);
+      for (var p = 1; p < face.pts.length; p++) ctx.lineTo(face.pts[p].x, face.pts[p].y);
+      ctx.closePath();
+      ctx.globalAlpha = face.alpha;
+      ctx.fillStyle = face.fill;
+      ctx.fill();
+      ctx.globalAlpha = face.alpha * 0.55;
+      ctx.strokeStyle = face.stroke;
+      ctx.lineWidth = 0.7;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  var at = /(?:^|[?&])at=(\d+)/.exec(location.search);
+  if (at && started) {
+    var steps = /(?:^|[?&])steps=(\d+)/.exec(location.search);
+    seek(Number(at[1]), steps ? Number(steps[1]) : 0);
+  }
+
+  resize();
+  prepare();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

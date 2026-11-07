@@ -48,6 +48,11 @@ jobs:
           python3 scripts/gen_showcase.py
           git diff --exit-code docs/assets/transcripts.js
 
+      - name: the figure replays a real run
+        run: |
+          python3 scripts/gen_floor.py
+          git diff --exit-code docs/assets/floor.json docs/figures/floor-data.js
+
       - name: configure pages
         uses: actions/configure-pages@v6
         with:

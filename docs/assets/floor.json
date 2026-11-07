@@ -1,0 +1,96 @@
+{
+  "note": "recorded from examples/05-floor; do not edit by hand",
+  "events": [
+    {
+      "at": 1700000000000,
+      "kind": "publish",
+      "id": "1700000000000:1:greet",
+      "name": "greet",
+      "card": 1
+    },
+    {
+      "at": 1700000000000,
+      "kind": "success",
+      "id": "1700000000000:1:greet",
+      "name": "greet",
+      "card": 1
+    },
+    {
+      "at": 1700000000000,
+      "kind": "publish",
+      "id": "1700000000000:2:flaky",
+      "name": "flaky",
+      "card": 2
+    },
+    {
+      "at": 1700000000000,
+      "kind": "retry",
+      "id": "1700000000000:2:flaky",
+      "name": "flaky",
+      "card": 2
+    },
+    {
+      "at": 1700000001000,
+      "kind": "success",
+      "id": "1700000000000:2:flaky",
+      "name": "flaky",
+      "card": 2
+    },
+    {
+      "at": 1700000002000,
+      "kind": "publish",
+      "id": "1700000002000:3:greet",
+      "name": "greet",
+      "card": 3
+    },
+    {
+      "at": 1700000002000,
+      "kind": "publish",
+      "id": "1700000002000:4:greet",
+      "name": "greet",
+      "card": 4
+    },
+    {
+      "at": 1700000002000,
+      "kind": "publish",
+      "id": "1700000002000:5:greet",
+      "name": "greet",
+      "card": 5
+    },
+    {
+      "at": 1700000002000,
+      "kind": "success",
+      "id": "1700000002000:3:greet",
+      "name": "greet",
+      "card": 3
+    },
+    {
+      "at": 1700000002000,
+      "kind": "success",
+      "id": "1700000002000:4:greet",
+      "name": "greet",
+      "card": 4
+    },
+    {
+      "at": 1700000002000,
+      "kind": "success",
+      "id": "1700000002000:5:greet",
+      "name": "greet",
+      "card": 5
+    },
+    {
+      "at": 1700000003000,
+      "kind": "publish",
+      "id": "1700000003000:6:greet",
+      "name": "greet",
+      "card": 6
+    },
+    {
+      "at": 1700000003000,
+      "kind": "revoked",
+      "id": "1700000003000:6:greet",
+      "name": "greet",
+      "card": 6
+    }
+  ]
+}
