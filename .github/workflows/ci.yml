@@ -127,3 +127,92 @@ jobs:
         working-directory: moontask-redis
         run: |
           moon fmt && git diff --exit-code
+
+  # Celery 5 on the other side of one redis: a chain, a chord, a reservation and
+  # an eta in each direction, plus the two-way queue. The scripts bring their own
+  # redis container, so this job adds the interpreter and nothing else.
+  interop:
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: post install
+        run: |
+          moon version --all
+          moon update
+
+      - name: the bridge the scripts drive
+        run: moon build --target native
+
+      - name: a redis and a celery
+        run: bash interop/setup.sh
+
+      - name: eight scenarios, each checked against what it claims
+        run: bash interop/check.sh
+
+      - name: both directions on one queue
+        run: |
+          bash interop/run_interop.sh | tee "$RUNNER_TEMP/interop-out.txt"
+          grep -q '"status": "SUCCESS"' "$RUNNER_TEMP/interop-out.txt"
+
+  # The SQL store against a real PostgreSQL. The statements are checked in the
+  # module's unit tests; what only a server can say is whether the upsert clause,
+  # the placeholders and the types are the ones it accepts, and whether a flow
+  # running on a worker really leaves a row behind.
+  sql:
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      MOONTASK_SQL_LIVE: "1"
+      MOONTASK_SQL_HOST: 127.0.0.1
+      MOONTASK_SQL_PORT: "5432"
+      MOONTASK_SQL_USER: postgres
+      MOONTASK_SQL_PASSWORD: postgres
+      MOONTASK_SQL_DATABASE: test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: post install
+        run: |
+          moon version --all
+          moon update
+
+      - name: moon check (the module on every target, the live module here)
+        run: |
+          moon check --target all --deny-warn moontask-sql/src/sql
+          moon check --target native --deny-warn integration/sql-live/src/live
+
+      - name: the store and the run records against a real server
+        run: |
+          moon test --target native -p moonbitstack/moontask-sql/sql
+          moon test --target native -p moonbitstack/moontask-sql-live/live
