@@ -28,6 +28,30 @@ async test "a step waits for the steps it names, and reads their answers" {
 }
 
 ///|
+async test "a step is called with its own dependencies, not with everything that has answered" {
+  let manual = Manual::new(1_000_000L)
+  let (app, _) = app_on(fn() { manual.now() })
+  let seen = []
+  let left = app.task("left", fn(_ : Unit, _) -> Int32 { 1 })
+  let right = app.task("right", fn(_ : Unit, _) -> Int32 { 2 })
+  let narrow = app.task("narrow", fn(args : Json, _) -> Int32 {
+    seen.push(args.stringify())
+    match args {
+      Object(fields) => fields.length()
+      _ => 0
+    }
+  })
+  let flow = @flow.Flow::new("narrow")
+  flow.step("left", left)
+  flow.step("right", right)
+  // `right` has answered by the time this runs, but it was not named.
+  flow.step("narrow", narrow, deps=["left"])
+  let run = with_worker(app.worker(), async fn() { flow.run(app, 1000L) })
+  assert_true(run.ok())
+  assert_eq(seen, ["{\"left\":1}"])
+}
+
+///|
 async test "steps that wait for nothing run before the step that joins them" {
   let manual = Manual::new(1_000_000L)
   let (app, _) = app_on(fn() { manual.now() })
