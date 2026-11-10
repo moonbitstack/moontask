@@ -1,6 +1,6 @@
 name = "moonbitstack/moontask"
 
-version = "0.1.0"
+version = "0.1.1"
 
 readme = "README.md"
 
@@ -39,7 +39,7 @@ description = "Task queues and schedules for MoonBit: workers, retries, periodic
 source = "src"
 
 import {
-  "moonbitstack/moondate@0.1.5",
+  "moonbitstack/moondate@0.1.6",
   "moonbitlang/async@0.22.5",
-  "moonbitstack/moonstate@0.1.0",
+  "moonbitstack/moonstate@0.1.1",
 }
