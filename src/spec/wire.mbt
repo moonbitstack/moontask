@@ -253,8 +253,8 @@ fn Message::read(
 /// this is the entry a broker uses, so a bad payload is refused in this
 /// library's terms rather than in the JSON module's.
 pub fn Message::parse(text : StringView) -> Message raise Refused {
-  let json = @json.parse(text) catch {
-    error => raise Refused::Malformed(got=error.to_string())
+  let json = @moonjson.loads(text, @moonjson.strict) catch {
+    error => raise Refused::Malformed(got=error.message())
   }
   read_message(json) catch {
     error => raise Refused::Malformed(got=error.to_string())
@@ -270,7 +270,7 @@ fn read_message(json : Json) -> Message raise @json.JsonDecodeError {
 ///|
 /// The JSON text of a message, which is what a broker stores.
 pub fn Message::text(self : Message) -> String {
-  Json(self).stringify()
+  @moonjson.dumps(Json(self))
 }
 
 ///|

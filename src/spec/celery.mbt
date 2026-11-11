@@ -28,22 +28,24 @@
 ///|
 /// The message as Celery's envelope, ready to be pushed on a queue.
 pub fn Message::to_celery(self : Message) -> Json {
-  let body = Json::array([
-    self.positional(),
-    Json::object({}),
-    Json::object({
-      "callbacks": Json::null(),
-      "errbacks": Json::null(),
-      "chain": match self.chain {
-        [] => Json::null()
-        items => Json::array(items.map(fn(next) { next.to_celery_body() }))
-      },
-      "chord": match self.chord {
-        Some(chord) => chord.callback.to_celery_body()
-        None => Json::null()
-      },
-    }),
-  ]).stringify()
+  let body = @moonjson.dumps(
+    Json::array([
+      self.positional(),
+      Json::object({}),
+      Json::object({
+        "callbacks": Json::null(),
+        "errbacks": Json::null(),
+        "chain": match self.chain {
+          [] => Json::null()
+          items => Json::array(items.map(fn(next) { next.to_celery_body() }))
+        },
+        "chord": match self.chord {
+          Some(chord) => chord.callback.to_celery_body()
+          None => Json::null()
+        },
+      }),
+    ]),
+  )
   let headers = Json::object({
     "lang": Json::string("moonbit"),
     "task": Json::string(self.name),
@@ -69,7 +71,7 @@ pub fn Message::to_celery(self : Message) -> Json {
     "timelimit": Json::array([Json::null(), Json::null()]),
     "root_id": Json::string(self.id),
     "parent_id": Json::null(),
-    "argsrepr": Json::string(self.args.stringify()),
+    "argsrepr": Json::string(@moonjson.dumps(self.args)),
     "kwargsrepr": Json::string("{}"),
     "origin": Json::string("moontask"),
     "ignore_result": Json::boolean(false),
@@ -166,7 +168,10 @@ pub fn Message::from_celery(
   }
   let body = match fields.get("body") {
     Some(String(encoded)) =>
-      @json.parse(@utf8.decode_lossy(@base64.decode(encoded)[:])) catch {
+      @moonjson.loads(
+        @utf8.decode_lossy(@base64.decode(encoded)[:]),
+        @moonjson.strict,
+      ) catch {
         _ => raise Refused::Malformed(got="the body is not base64 of json")
       }
     Some(other) => other

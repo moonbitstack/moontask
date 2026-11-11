@@ -3,7 +3,7 @@
 // implement.
 //
 // This package is deliberately small and depends on nothing but the standard
-// library and the calendar, so a broker for any transport implements `Broker`
+// library, the calendar and the family's JSON and base64 codecs, so a broker for any transport implements `Broker`
 // without pulling in the workers, the beat or the canvas.
 //
 // The message shape follows the protocol Celery 5 speaks between a client and a
@@ -12,12 +12,13 @@
 // https://docs.celeryq.dev/en/stable/internals/protocol.html
 import {
   "moonbitlang/core/json",
-  "moonbitlang/core/encoding/base64",
   "moonbitlang/core/encoding/utf8",
   "moonbitstack/moondate",
+  "moonbitstack/moonjson",
+  "moonbitstack/moonbase/base64",
 }
 
 import {
-  "moonbitlang/core/encoding/base64",
   "moonbitlang/core/encoding/utf8",
+  "moonbitstack/moonbase/base64",
 } for "test"

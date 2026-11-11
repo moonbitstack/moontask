@@ -40,6 +40,10 @@ source = "src"
 
 import {
   "moonbitstack/moondate@0.1.6",
+  "moonbitstack/moonjson@0.4.4",
+  "moonbitstack/moonbase@0.4.5",
   "moonbitlang/async@0.22.5",
   "moonbitstack/moonstate@0.1.1",
+  "moonbitstack/moonast@0.2.8",
+  "moonbitlang/parser@0.4.7",
 }
