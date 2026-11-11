@@ -27,6 +27,32 @@ async fn first_run() -> Unit {
 
 `App::new` takes the clock as a function: the library never reads the system clock, which is what makes a test able to move time.
 
+## Declare tasks with `#task.def`
+
+Put `#task.def` on a function and wire `moonx moonbitstack/moontask/cmd/tasks` in as a dev_build rule; the generator writes a `Tasks` record of typed handles and `register_tasks(app)`:
+
+<!-- nocheck -->
+```moonbit
+#derive(ToJson, FromJson)
+pub(all) struct Order {
+  id : String
+  cups : Int
+}
+
+#task.def(name="orders.place", queue="orders", retries="1", timeout="30s")
+pub fn place(order : Order, ctx : @moontask.Context) -> String raise {
+  "\{order.id} on attempt \{ctx.attempt}"
+}
+
+// elsewhere, on the worker and on the producer alike
+let tasks = register_tasks(app)
+let answer = tasks.place.send({ id: "a1", cups: 2 }).get(timeout=5000L)
+```
+
+- One argument per task, the JSON value the message carries; several values go in a record that derives `ToJson` and `FromJson`, so the package imports `moonbitlang/core/json`.
+- A trailing `@moontask.Context` parameter is optional; `ctx.attempt` starts at 1.
+- Options: `name`, `queue`, `retries`, `timeout` (`250ms`, `30s`, `5m`, `1h`), `acks_late`, `ignore_result`. Anything else in a policy goes through `App::task` directly.
+
 ## Retry a task
 
 ```moonbit

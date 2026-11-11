@@ -62,6 +62,9 @@ jobs:
         run: |
           moon info --target all && git diff --exit-code
 
+      - name: the generated tasks are up to date
+        run: moon run src/cmd/tasks --target native -- -C src/examples/06-annotated jobs.mbt -o jobs.g.mbt --check
+
       - name: the code in the docs compiles
         if: runner.os == 'Linux'
         run: python3 scripts/check_snippets.py

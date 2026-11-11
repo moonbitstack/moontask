@@ -12,6 +12,53 @@ Task queues, retries, periodic beats, workflows, and the canvas that chains, gro
 
 ---
 
+## Declaring a task
+
+`#task.def` on a function declares a task, as Celery's `@app.task` does:
+
+```moonbit nocheck
+#task.def(name="orders.place", queue="orders", retries="1")
+pub fn place(order : Order, ctx : @moontask.Context) -> String raise {
+  ...
+}
+```
+
+The generator writes a `Tasks` record with a typed handle for each declared task, and
+`register_tasks`, which registers them all on an app. A worker calls it to run the tasks, a
+producer to send them:
+
+<!-- nocheck -->
+```moonbit
+let tasks = register_tasks(app)
+let receipt = tasks.place.send({ id: "a1", cups: 2 }).get(timeout=5000L)
+```
+
+A task takes one argument, the one JSON value its message carries (a record when there are
+several), and may end with the run's `Context`; it can be a plain function or an `async fn`. The
+options are `name` (the function's name when left out), `queue`, `retries`, `timeout` (`250ms`,
+`30s`, `5m` or `1h`), `acks_late` and `ignore_result`, laid over the app's preset; the rest of a
+policy is set by calling `App::task` directly, as below.
+
+The generator wires in as a dev_build rule, in `moon.mod`:
+
+<!-- nocheck -->
+```
+rule(name: "tasks", command: "moonx moonbitstack/moontask/cmd/tasks -C \"$mod_dir\" \"$input\" -o \"$output\"")
+```
+
+and in the `moon.pkg` of the package, which imports `moonbitstack/moontask` and
+`moonbitlang/core/json` (for the `FromJson` and `ToJson` the argument derives):
+
+<!-- nocheck -->
+```
+dev_build(rule: "tasks", input: "jobs.mbt", output: "jobs.g.mbt")
+formatter(ignore: [ "jobs.g.mbt" ])
+```
+
+`moon run src/examples/06-annotated` shows it.
+
+## Without the annotation
+
 An app owns a broker, a result store and a clock. A task is a name, a policy and a body; sending one writes a message and hands back a handle that decodes the stored result back into the body's return type. A worker takes messages off the broker, runs them, and settles each one the way its policy says.
 
 ```moonbit
@@ -216,13 +263,15 @@ A broker that also implements `Backend` and `Counter` is passed to `App::new` th
 
 ## Examples
 
-Four runnable examples ship in `src/examples`: `01-queue` takes a task from send to answer with one retry in between, `02-canvas` runs a chain, a group and a chord, `03-retry` shows the ladder an exponential backoff climbs, and `04-flow` runs a two-step workflow on a worker. All of them pin their clock, so their output is the same on every run.
+Six runnable examples ship in `src/examples`: `01-queue` takes a task from send to answer with one retry in between, `02-canvas` runs a chain, a group and a chord, `03-retry` shows the ladder an exponential backoff climbs, `04-flow` runs a two-step workflow on a worker, `05-floor` records a run as the events the home page's figure replays, and `06-annotated` declares its tasks with `#task.def`. All of them pin their clock, so their output is the same on every run.
 
 ```
 moon run src/examples/01-queue
 moon run src/examples/02-canvas
 moon run src/examples/03-retry
 moon run src/examples/04-flow
+moon run src/examples/05-floor
+moon run src/examples/06-annotated
 ```
 
 ## License
