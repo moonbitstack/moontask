@@ -63,6 +63,32 @@ let worker = app.worker(concurrency=2)
     </li>
 
     <li>
+      <h2>Declaring a task with an annotation</h2>
+      <p><code>#task.def</code> on a function declares a task, the way a decorator does: the generator reads the function's signature and writes a typed handle for it, so a producer sends it without spelling the name again. The function may be plain or <code>async</code>, takes the one value its message carries, and may end with the run's <code>Context</code>.</p>
+<pre class="sig"><code>#task.def(name="orders.place", queue="orders", retries="1")
+pub fn place(order : Order, ctx : @moontask.Context) -> String raise {
+  if ctx.attempt == 1 &amp;&amp; order.cups &gt; 9 {
+    fail("too many cups for one try")
+  }
+  "\{order.id}: \{order.cups} cups on attempt \{ctx.attempt}"
+}</code></pre>
+      <p>The options are <code>name</code> (the function's own name when left out), <code>queue</code>, <code>retries</code>, <code>timeout</code> (<code>250ms</code>, <code>30s</code>, <code>5m</code> or <code>1h</code>), <code>acks_late</code> and <code>ignore_result</code>; they are laid over the app's preset, and anything else is set by calling <code>App::task</code> directly. The generator writes one <code>register_tasks</code> for the package, which registers everything it declared and hands back the handles:</p>
+<pre class="sig"><code>let tasks = register_tasks(app)
+let receipt = tasks.place.send({ id: "b2", cups: 12, })
+println(receipt.get(timeout=5000L))</code></pre>
+      <p>It is a build step rather than a macro, so the generated file is readable MoonBit and the editor sees the types: a rule in <code>moon.mod</code>, and one line in the package's <code>moon.pkg</code> saying which file it reads and which it writes.</p>
+<pre class="sig"><code>rule(name: "tasks", command: "moonx moonbitstack/moontask/cmd/tasks -C \"$mod_dir\" \"$input\" -o \"$output\"")</code></pre>
+<pre class="sig"><code>dev_build(rule: "tasks", input: "jobs.mbt", output: "jobs.g.mbt")
+formatter(ignore: [ "jobs.g.mbt" ])</code></pre>
+      <p>Both tasks above come from one file; the first attempt of the large order fails and the retry the annotation allowed runs, so the transcript shows both the policy and the attempt counter:</p>
+      <pre class="term"><code>registered tick, orders.place
+queue      orders, retries 1
+answer     a1: 2 cups on attempt 1
+answer     b2: 12 cups on attempt 2
+tick       done</code></pre>
+    </li>
+
+    <li>
       <h2>When a run fails</h2>
       <p>A task body that raises is recorded, not lost. Inside the retry budget the message is published again with an <code>eta</code> computed from the policy's backoff; past the budget the failure is what the store keeps. The spread inside an exponential backoff is derived from the task id, so the same task waits the same on every machine and a test can assert the delay.</p>
 <pre class="sig"><code>let flaky = app.task("flaky", fn(_ : Unit, _) -> Unit raise {
@@ -88,6 +114,15 @@ println(grouped.get(timeout=5000L).stringify())          // [40,50]
 let joined = @moontask.chord([step.sig(1), step.sig(2), step.sig(3)], total.sig([])).send(app)
 println(joined.get(timeout=5000L).stringify())           // 60</code></pre>
       <p>The chord's callback is sent with the list of part results, in the order the parts were given. A part that fails for good records the callback as failed instead of leaving it pending forever.</p>
+      <p>A fan-out is the same shape at a larger size: a map sends one run per item, a starmap one per tuple — the tuple spread across that run's arguments — and a chunk one message per slice of tuples, which the worker that took it runs in order.</p>
+<pre class="sig"><code>println(step.map([1, 2, 3]).send(app).get(timeout=5000L).stringify())
+println(total.starmap([[1, 2], [3, 4]]).send(app).get(timeout=5000L).stringify())
+println(step.chunks([[1], [2], [3], [4], [5]], size=2).send(app).get(timeout=5000L).stringify())</code></pre>
+      <p>Three lists, in the order the items were given — the last one a list per slice, the final slice holding what is left:</p>
+      <pre class="term"><code>[10,20,30]
+[3,7]
+[[10,20],[30,40],[50]]</code></pre>
+      <p>A tuple of one is that argument and a longer tuple is the argument list, which is the same reading a consumer on the other side of a shared queue gets, so a fan-out published here is runnable there. An empty fan-out publishes nothing and answers an empty list.</p>
     </li>
 
     <li>
@@ -142,6 +177,9 @@ let app = @moontask.App::new(broker, backend=broker.store(), counter=broker.stor
 store.ensure()                                        // once, at start-up
 let app = @moontask.App::new(broker, backend=store, clock=now)
 flow.record(store)</code></pre>
+      <p>A database that answers in the same call has a driver of that shape, and <code>Store::inline</code> takes it — a statement against a local file runs where it was made, and everything above it is the same code:</p>
+<pre class="sig"><code>let db = @sqlite.SqliteDriver::open("queue.db")
+let store = @sql.Store::inline(db, clock=now)</code></pre>
       <p>Two tables, one row per run and one row per workflow run. A write is a single upsert, so a worker killed mid-write leaves the previous state rather than half of the new one; the runs of a flow read back newest first, and a run that failed reads back with the words it failed with.</p>
 <pre class="sig"><code>let kept = store.runs("etl", limit=10)
 println(kept[0].at)                                    // the newest instant

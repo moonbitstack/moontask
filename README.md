@@ -98,7 +98,6 @@ Three further modules live beside it, each with its own `moon.mod` so a queue th
 | `moontask-redis` | A broker and result store on Redis, with per-consumer leases and recovery of a worker that stopped — or on Celery's own key layout, so one queue can be shared with a Celery worker |
 | `moontask-sql` | A result store and a workflow run log on SQL, over any `moondb` async driver, so the same code runs on SQLite, MySQL and PostgreSQL |
 | `moontask-admin` | A management interface as an ASGI application: a page, reports, sending, revoking, and a live stream of counts |
-
 ## A task's policy
 
 | Field | Meaning | Default |
@@ -134,11 +133,32 @@ async fn canvas() -> Unit {
     [step.sig(1), step.sig(2), step.sig(3)],
     total.sig([]),
   ).send(app)
-  println("\{chained.ids().length()} \{grouped.ids().length()} \{joined.ids().length()}")
+  let mapped = step.map([6, 7]).send(app)
+  let starred = total.starmap([[1, 2], [3, 4]]).send(app)
+  let chunked = step.chunks([[1], [2], [3]], size=2).send(app)
+  println(
+    "\{chained.ids().length()} \{grouped.ids().length()} \{joined.ids().length()}",
+  )
+  println(
+    "\{mapped.ids().length()} \{starred.ids().length()} \{chunked.ids().length()}",
+  )
 }
 ```
 
 A chain is a message carrying its own tail. A chord gives every part the same counter key and the callback behind it, so whichever worker finishes last sends the callback; a part that fails for good records the callback as failed rather than leaving it pending.
+
+`map`, `starmap` and `chunks` are the fan-out: one run per item, one run per tuple, and one run per slice of tuples.
+
+| Call | What it publishes | What the handle answers |
+|:--|:--|:--|
+| `task.map(items)` | one message per item, the item being that run's whole argument | the results in the order given |
+| `task.starmap(tuples)` | one message per tuple, the tuple being that run's argument list | the results in the order given |
+| `task.chunks(tuples, size=2)` | one message per slice, each running its tuples in order in the worker that took it | one list per slice, the last slice holding what is left |
+
+A tuple of one travels as that single argument and a longer one as the argument list, which is how a consumer on the other side of a shared queue reads it too, so a fan-out published here is runnable by a worker there. `chunks` trades parallelism for dispatch: fewer messages and fewer reservations, at the cost of running a slice one item at a time, and a slice is retried as a whole by the chunk task's own policy rather than item by item — a run that needs its own retry budget goes through `map` or `starmap`.
+
+An empty `map`, `starmap` or `chunks` publishes nothing and hands back a handle that is already answered with an empty list, while `chain([])` is refused: a chain with no link has nothing to run.
+
 
 ## On a rhythm
 
@@ -217,6 +237,16 @@ async fn sql_backend {
 
 `ensure()` creates the two tables if they are not there yet, and is meant to be called once at start-up: a store that ran DDL on every write would put a schema change on the queue's hot path. The tables are named by `Tables`, so two queues can share one schema.
 
+A database that answers in the same call has a driver of that shape, and `Store::inline` takes it: the statement runs where it was made, which for a local file is what it does anyway, and the store writes against it exactly as it writes against a server.
+
+<!-- nocheck -->
+```moonbit
+let db = @sqlite.SqliteDriver::open("queue.db")
+let store = @sql.Store::inline(db, clock=fn() { @env.now().reinterpret_as_int64() })
+store.ensure()
+```
+
+
 ## Across processes
 
 <!-- nocheck -->
@@ -244,7 +274,7 @@ let broker = @redis.Broker::celery(conn, clock=now, consumer="worker-7")
 | a chord | the parts' results land in Celery's join keys as they settle, so the last part — on either side — closes it |
 | an eta | the message sits on the queue and the consumer holds it, which is what Celery does |
 
-`interop/` holds the harness that proves it: `bash interop/check.sh` runs eight scenarios against a real Celery 5.5 — a chain and a chord in each direction, a reservation handed back in each direction, and an eta in each direction — and fails unless each side ran what the scenario claims.
+`interop/` holds the harness that proves it: `bash interop/check.sh` runs ten scenarios against a real Celery 5.5 — a chain, a chord, a fan-out, a handed-back reservation and an eta, each in both directions — and fails unless each side ran what the scenario claims.
 
 ## Writing a broker
 
@@ -263,7 +293,7 @@ A broker that also implements `Backend` and `Counter` is passed to `App::new` th
 
 ## Examples
 
-Six runnable examples ship in `src/examples`: `01-queue` takes a task from send to answer with one retry in between, `02-canvas` runs a chain, a group and a chord, `03-retry` shows the ladder an exponential backoff climbs, `04-flow` runs a two-step workflow on a worker, `05-floor` records a run as the events the home page's figure replays, and `06-annotated` declares its tasks with `#task.def`. All of them pin their clock, so their output is the same on every run.
+Seven runnable examples ship in `src/examples`: `01-queue` takes a task from send to answer with one retry in between, `02-canvas` runs a chain, a group and a chord, `03-retry` shows the ladder an exponential backoff climbs, `04-flow` runs a two-step workflow on a worker, `05-floor` records a run as the events the home page's figure replays, `06-annotated` declares its tasks with `#task.def`, and `07-fanout` maps, star-maps and chunks one list. All of them pin their clock, so their output is the same on every run.
 
 ```
 moon run src/examples/01-queue
@@ -272,6 +302,7 @@ moon run src/examples/03-retry
 moon run src/examples/04-flow
 moon run src/examples/05-floor
 moon run src/examples/06-annotated
+moon run src/examples/07-fanout
 ```
 
 ## License

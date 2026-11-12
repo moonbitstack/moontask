@@ -31,6 +31,11 @@
 <p>A part that fails for good does not hold the chord open: the last part to finish records the callback as failed, so nobody waits on a callback that will never be sent.</p></div>
 </article>
 <article class="api-entry">
+<pre class="sig">pub let chunk_name : String</pre>
+<div class="doc"><p>| The name a chunk runs under.</p>
+<p>One body serves every worker, so a chunk published by one process is run by a worker in another: the message names the task the chunk is of, and the body that runs it comes with the worker rather than from whoever built the canvas.</p></div>
+</article>
+<article class="api-entry">
 <pre class="sig">pub fn group(Array[Sig]) -&gt; Sig</pre>
 <div class="doc"><p>| Every run in <code>sigs</code>, all at once, waited on together.</p>
 <p>A chain given to a group is not broken up: its head is published and its tail travels with it, so the group waits on the chain&#x27;s last link. The handle&#x27;s value is the list of results in the order the sigs were given.</p></div>
@@ -318,6 +323,18 @@
 <p>The argument type is what the body takes; the result type is what it returns, and the handle decodes the stored value back into it. Both go over the wire as JSON, so a task may be sent by one process and run by another.</p></div>
 </article>
 <article class="api-entry">
+<pre class="sig">pub fn[A, R, B : @json.ToJson] Task::chunks(Self[A, R], Array[B], size? : Int32) -&gt; Sig raise @spec.Refused</pre>
+<div class="doc"><p>| The runs of <code>tuples</code>, <code>size</code> of them per run, all at once.</p>
+<p>A part of the group is one run of the chunk task, which runs its slice of the tuples one after another in the worker that picked it up and answers their results in order. The handle answers one list per part, so the results of the whole fan-out are those lists in order; the last part holds what is left over.</p>
+<p>Batching trades parallelism for dispatch: one message per <code>size</code> runs is fewer broker round trips and fewer reservations.</p>
+<p>A slice is one run of the chunk task, so it is retried as a whole by that task&#x27;s policy — the default one, since the message names the chunk task and not the task inside it — and a tuple that fails stops its slice. A run that needs its own retry budget is sent with <code>map</code> or <code>starmap</code> instead, where each run carries the policy of the task it belongs to.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A : @json.ToJson, R] Task::map(Self[A, R], Array[A]) -&gt; Sig</pre>
+<div class="doc"><p>| One run of this task per item, all at once: a group whose parts are the items in the order they were given.</p>
+<p>Each item is the whole argument of its run, so a task that takes a record is mapped over records. The handle answers the results in that same order, and an empty list is a group with nothing to wait for, which answers an empty list rather than refusing.</p></div>
+</article>
+<article class="api-entry">
 <pre class="sig">pub fn[A, R] Task::name(Self[A, R]) -&gt; String</pre>
 <div class="doc"><p>| The name the message carries.</p></div>
 </article>
@@ -331,6 +348,11 @@
 <article class="api-entry">
 <pre class="sig">pub fn[A : @json.ToJson, R] Task::sig(Self[A, R], A) -&gt; Sig</pre>
 <div class="doc"><p>| The run of <code>args</code> as a node of a canvas, without publishing it.</p></div>
+</article>
+<article class="api-entry">
+<pre class="sig">pub fn[A, R, B : @json.ToJson] Task::starmap(Self[A, R], Array[B]) -&gt; Sig raise @spec.Refused</pre>
+<div class="doc"><p>| One run per tuple, all at once, each tuple spread across the run&#x27;s arguments.</p>
+<p>This is the shape a fan-out takes when the runs take several arguments: a list per run, published as that run&#x27;s argument list. The handle answers the results in the order the tuples were given.</p></div>
 </article>
 <article class="api-entry">
 <pre class="sig">pub struct Worker {</pre>

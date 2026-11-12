@@ -3,7 +3,7 @@
 
 The page must show the library running, not a hand-written impression of it, so
 the lines it animates come from running the examples that ship in the module.
-Both examples pin their clock, so the recording is the same on every machine and
+Each example pins its clock, so the recording is the same on every machine and
 the workflow can check it has not drifted.
 
 Run from the repository root:
@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = [
     ("queue", "src/examples/01-queue", "A queue end to end"),
     ("canvas", "src/examples/02-canvas", "A chain, a group and a chord"),
+    ("fanout", "src/examples/07-fanout", "A map, a starmap and a chunk"),
 ]
 HEADER = """// Written by scripts/gen_showcase.py from a run of the examples. Do not edit.
 window.TRANSCRIPTS = """

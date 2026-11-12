@@ -1,6 +1,6 @@
 ---
 name: moontask
-description: Task queues, retries, periodic beats, workflows and the chain/group/chord canvas for MoonBit. Use when work must outlive the request that asked for it, when a job has to run on a rhythm, when steps depend on each other, or when results and workflow history have to be kept in a database.
+description: Task queues, retries, periodic beats, workflows and the chain/group/chord/map canvas for MoonBit. Use when work must outlive the request that asked for it, when a job has to run on a rhythm, when steps depend on each other, when one call has to fan out over a list, or when results and workflow history have to be kept in a database.
 ---
 
 # moontask
@@ -96,6 +96,32 @@ async fn canvas() -> Unit {
 ```
 
 A chord needs an app with a `Counter`; the in-memory broker and the Redis store both are one. A part that fails for good records the callback as failed rather than leaving it pending.
+
+## Fan out over a list
+
+```moonbit
+async fn fan_out() -> Unit {
+  let now = fn() { 1_700_000_000_000L }
+  let broker = @moontask.MemoryBroker::new(clock=now)
+  let app = @moontask.App::new(broker, backend=broker, counter=broker, clock=now)
+  let step = app.task("step", fn(value : Int32, _) { value * 10 })
+  let add = app.task("add", fn(values : Array[Int32], _) { values.length() })
+  let worker = app.worker()
+  @async.with_task_group(async fn(task_group) {
+    task_group.spawn_bg(async fn() { worker.run() }, no_wait=true)
+    println(step.map([1, 2, 3]).send(app).get(timeout=5000L).stringify())
+    println(add.starmap([[1, 2], [3, 4]]).send(app).get(timeout=5000L).stringify())
+    println(step.chunks([[1], [2], [3]], size=2).send(app).get(timeout=5000L).stringify())
+    worker.stop()
+  })
+}
+```
+
+- `map(items)` publishes one run per item, each item being that run's whole argument; the handle answers the results in order.
+- `starmap(tuples)` publishes one run per tuple, the tuple being that run's argument list; a tuple of one travels as that single argument, a longer one as the list. That is the same reading a consumer on the other side of a shared queue gets.
+- `chunks(tuples, size=2)` publishes one message per slice; the worker that takes a slice runs its tuples in order and answers their list. Fewer messages and fewer reservations, at the cost of serial work inside one run — and a slice is retried as a whole under the chunk task's default policy, not per tuple.
+- An empty fan-out publishes nothing and answers an empty list, while `chain([])` is refused.
+- The chunk body is registered under `moontask.chunks` by `App::worker`, so a worker runs a chunk another process built; `chunk_name` is that name if a policy has to be set for it.
 
 ## Send on a rhythm
 
@@ -194,6 +220,7 @@ async fn sql_backend {
 ```
 
 - The driver is the caller's, so the same store runs on SQLite, MySQL and PostgreSQL; the dialect is read from the driver once.
+- A driver that answers in the same call — SQLite's — goes in through `Store::inline(db, clock=now)`; a server's asynchronous driver through `Store::new`.
 - `ensure()` creates both tables if they are missing; call it once at start-up, not on every write.
 - `Store` is both a `Backend` (one row per run) and a `Recorder` (one row per workflow run), so an app and a flow can share it.
 - Name the tables with `Tables` when two queues share one schema.

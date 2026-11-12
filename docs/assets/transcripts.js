@@ -21,5 +21,15 @@ window.TRANSCRIPTS = {
       "group   [40,50]",
       "chord   60"
     ]
+  },
+  "fanout": {
+    "title": "A map, a starmap and a chunk",
+    "command": "moon run src/examples/07-fanout",
+    "lines": [
+      "map     [10,20,30]",
+      "starmap [3,7]",
+      "chunks  [[10,20],[30,40],[50]]",
+      "order   1, 2, 3, 1, 2, 3, 4, 5"
+    ]
   }
 };
