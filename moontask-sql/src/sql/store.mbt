@@ -35,6 +35,21 @@ pub fn Store::dialect(self : Store) -> @moondb.Dialect {
 }
 
 ///|
+/// A store on a driver that answers in the same call, such as SQLite's.
+///
+/// The call runs inline — a statement against a local file has nothing to wait
+/// for — and the store writes against it exactly as it writes against a server's
+/// asynchronous driver. The dialect still comes from the driver, so a table is
+/// created and a row written in that driver's SQL.
+pub fn Store::inline(
+  driver : &@moondb.Driver,
+  clock~ : () -> Int64,
+  tables~ : Tables = tables,
+) -> Store {
+  Store::new(Inline::new(driver), clock~, tables~)
+}
+
+///|
 /// The tables this store writes.
 pub fn Store::tables(self : Store) -> Tables {
   self.tables

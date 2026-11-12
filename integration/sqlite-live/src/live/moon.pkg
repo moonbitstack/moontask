@@ -1,0 +1,16 @@
+// The SQL store against a real SQLite: an outcome written and read back, a run
+// recorded, and a flow whose steps run on a worker while the rows land.
+import {
+  "moonbitstack/moontask",
+  "moonbitstack/moontask/spec",
+  "moonbitstack/moontask/flow",
+  "moonbitstack/moontask-sql/sql",
+  "moonbitstack/moondb",
+  "moonbitstack/moonsqlite" @sqlite,
+} for "test"
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+supported_targets = "native"

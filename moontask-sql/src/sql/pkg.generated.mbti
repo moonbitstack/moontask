@@ -13,6 +13,23 @@ pub let tables : Tables
 // Errors
 
 // Types and methods
+pub struct Inline {
+  inner : &@moondb.Driver
+}
+pub async fn Inline::begin(Self) -> Unit raise @moondb.DbError
+pub fn Inline::capabilities(Self) -> @moondb.Capabilities
+pub async fn Inline::close(Self) -> Unit
+pub async fn Inline::commit(Self) -> Unit raise @moondb.DbError
+pub fn Inline::dialect(Self) -> @moondb.Dialect
+pub async fn Inline::execute(Self, String, Array[@moondb.Value]) -> @moondb.ExecResult raise @moondb.DbError
+pub fn Inline::new(&@moondb.Driver) -> Self
+pub async fn Inline::ping(Self) -> Bool
+pub async fn Inline::prepare(Self, String) -> &@moondb.AsyncStmt raise @moondb.DbError
+pub async fn Inline::query(Self, String, Array[@moondb.Value]) -> Array[@moondb.Row] raise @moondb.DbError
+pub async fn Inline::query_stream(Self, String, Array[@moondb.Value]) -> &@moondb.AsyncCursor raise @moondb.DbError
+pub async fn Inline::rollback(Self) -> Unit raise @moondb.DbError
+pub impl @moondb.AsyncDriver for Inline
+
 pub struct Store {
   driver : &@moondb.AsyncDriver
   dialect : @moondb.Dialect
@@ -22,6 +39,7 @@ pub struct Store {
 pub fn Store::dialect(Self) -> @moondb.Dialect
 pub async fn Store::ensure(Self) -> Unit raise @spec.Refused
 pub async fn Store::fetch(Self, String) -> @spec.Outcome? raise @spec.Refused
+pub fn Store::inline(&@moondb.Driver, clock~ : () -> Int64, tables? : Tables) -> Self
 pub fn Store::new(&@moondb.AsyncDriver, clock~ : () -> Int64, tables? : Tables) -> Self
 pub async fn Store::record(Self, @flow.Run) -> Unit
 pub async fn Store::runs(Self, String, limit~ : Int32) -> Array[@flow.Run]

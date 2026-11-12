@@ -175,10 +175,11 @@ jobs:
           grep -q 'celery sees cel-A: SUCCESS 42' "$RUNNER_TEMP/interop-out.txt"
           grep -q '"answered":42' "$RUNNER_TEMP/interop-out.txt"
 
-  # The SQL store against a real PostgreSQL. The statements are checked in the
-  # module's unit tests; what only a server can say is whether the upsert clause,
-  # the placeholders and the types are the ones it accepts, and whether a flow
-  # running on a worker really leaves a row behind.
+  # The SQL store against a real PostgreSQL and a real SQLite. The statements are
+  # checked in the module's unit tests; what only a database can say is whether
+  # the upsert clause, the placeholders and the types are the ones it accepts,
+  # and whether a flow running on a worker really leaves a row behind. SQLite
+  # needs no service, which is why it shares this job.
   sql:
     permissions:
       contents: read
@@ -218,12 +219,16 @@ jobs:
           moon version --all
           moon update
 
-      - name: moon check (the module on every target, the live module here)
+      - name: moon check (the module on every target, the live modules here)
         run: |
           moon check --target all --deny-warn moontask-sql/src/sql
           moon check --target native --deny-warn integration/sql-live/src/live
+          moon check --target native --deny-warn integration/sqlite-live/src/live
 
       - name: the store and the run records against a real server
         run: |
           moon test --target native -p moonbitstack/moontask-sql/sql
           moon test --target native -p moonbitstack/moontask-sql-live/live
+
+      - name: the same store against a real SQLite
+        run: moon test --target native -p moonbitstack/moontask-sqlite-live/live
