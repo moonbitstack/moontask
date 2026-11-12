@@ -28,7 +28,7 @@ description = "SQL result store and workflow run records for moontask, over any 
 source = "src"
 
 import {
-  "moonbitstack/moontask@0.1.0",
-  "moonbitstack/moondb@0.2.7",
+  "moonbitstack/moontask@0.1.1",
+  "moonbitstack/moondb@0.2.8",
   "moonbitlang/async@0.22.5",
 }

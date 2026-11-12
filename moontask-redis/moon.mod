@@ -27,7 +27,7 @@ description = "Redis broker and result store for moontask: queues in list and so
 source = "src"
 
 import {
-  "moonbitstack/moontask@0.1.0",
-  "moonbitstack/moonredis@0.1.3",
+  "moonbitstack/moontask@0.1.1",
+  "moonbitstack/moonredis@0.1.6",
   "moonbitlang/async@0.22.5",
 }

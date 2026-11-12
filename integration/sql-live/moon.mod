@@ -13,9 +13,9 @@ description = "A live check that the SQL store and the run records work against 
 source = "src"
 
 import {
-  "moonbitstack/moontask@0.1.0",
+  "moonbitstack/moontask@0.1.1",
   "moonbitstack/moontask-sql@0.1.0",
-  "moonbitstack/moondb@0.2.7",
-  "moonbitstack/moonpostgres@0.6.10",
+  "moonbitstack/moondb@0.2.8",
+  "moonbitstack/moonpostgres@0.6.11",
   "moonbitlang/async@0.22.5",
 }

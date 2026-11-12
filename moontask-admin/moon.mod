@@ -27,7 +27,7 @@ description = "A management interface for moontask: an ASGI application serving 
 source = "src"
 
 import {
-  "moonbitstack/moontask@0.1.0",
-  "moonbitstack/moonasgi@0.10.6",
+  "moonbitstack/moontask@0.1.1",
+  "moonbitstack/moonasgi@0.10.8",
   "moonbitlang/async@0.22.5",
 }
