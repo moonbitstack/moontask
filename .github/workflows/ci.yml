@@ -163,7 +163,7 @@ jobs:
       - name: a redis and a celery
         run: bash interop/setup.sh
 
-      - name: eight scenarios, each checked against what it claims
+      - name: ten scenarios, each checked against what it claims
         run: bash interop/check.sh
 
       - name: both directions on one queue
