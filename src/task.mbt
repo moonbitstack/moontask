@@ -26,6 +26,33 @@ pub fn[A, R] Task::policy(self : Task[A, R]) -> Policy {
 }
 
 ///|
+/// The message a run of this task carries, with `args` already in its wire form.
+///
+/// The queue is the policy's and nothing is scheduled: this is the shape every
+/// caller varies from, whether the arguments came from a typed value or from a
+/// tuple a canvas was given.
+fn[A, R] Task::message(
+  self : Task[A, R],
+  args : Json,
+  id? : String,
+) -> @spec.Message {
+  {
+    id: id.unwrap_or(self.app.next_id(self.name)),
+    name: self.name,
+    args,
+    queue: self.policy.queue,
+    priority: 0,
+    eta: None,
+    expires: None,
+    retries: 0,
+    chain: [],
+    chord: None,
+    single_arg: false,
+    immutable: false,
+  }
+}
+
+///|
 /// The message `args` becomes, without publishing it.
 fn[A : ToJson, R] Task::compose(
   self : Task[A, R],
@@ -44,18 +71,11 @@ fn[A : ToJson, R] Task::compose(
     (None, None) => None
   }
   {
-    id: id.unwrap_or(self.app.next_id(self.name)),
-    name: self.name,
-    args: Json(args),
+    ..self.message(Json(args), id?),
     queue: queue.unwrap_or(self.policy.queue),
     priority: priority.unwrap_or(0),
     eta,
     expires,
-    retries: 0,
-    chain: [],
-    chord: None,
-    single_arg: false,
-    immutable: false,
   }
 }
 

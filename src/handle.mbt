@@ -62,6 +62,12 @@ pub async fn[R] Handle::get(
   self : Handle[R],
   timeout? : Int64,
 ) -> R raise @spec.Refused {
+  // A set of nothing has all settled before it is asked; it needs no store to
+  // say so, and waiting for one that is not there would refuse a run that is
+  // already complete.
+  if self.all && self.ids.length() == 0 {
+    return (self.codec)(Json::array([]))
+  }
   let backend = match self.app.backend {
     Some(backend) => backend
     None => raise @spec.Refused::Missing(kind="backend")

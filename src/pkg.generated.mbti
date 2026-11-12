@@ -17,6 +17,8 @@ pub fn chain(Array[Sig]) -> Sig
 
 pub fn chord(Array[Sig], Sig) -> Sig
 
+pub let chunk_name : String
+
 pub fn group(Array[Sig]) -> Sig
 
 pub fn milliseconds_of(@moondate.Moment) -> Int64?
@@ -199,10 +201,13 @@ pub struct Task[A, R] {
   policy : Policy
   run : async (A, Context) -> R
 }
+pub fn[A, R, B : @json.ToJson] Task::chunks(Self[A, R], Array[B], size? : Int32) -> Sig raise @spec.Refused
+pub fn[A : @json.ToJson, R] Task::map(Self[A, R], Array[A]) -> Sig
 pub fn[A, R] Task::name(Self[A, R]) -> String
 pub fn[A, R] Task::policy(Self[A, R]) -> Policy
 pub async fn[A : @json.ToJson, R : @json.FromJson] Task::send(Self[A, R], A, eta? : Int64, countdown? : Int64, expires? : Int64, queue? : String, priority? : Int32, id? : String) -> Handle[R] raise @spec.Refused
 pub fn[A : @json.ToJson, R] Task::sig(Self[A, R], A) -> Sig
+pub fn[A, R, B : @json.ToJson] Task::starmap(Self[A, R], Array[B]) -> Sig raise @spec.Refused
 
 type Wiring
 

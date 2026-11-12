@@ -211,5 +211,9 @@ pub fn App::worker(
   concurrency~ : Int32 = 4,
   prefetch~ : Int32 = 4,
 ) -> Worker {
+  // A worker carries the chunk body, so a chunk another process built runs here
+  // even though this app never built a canvas. An app that only sends has no
+  // use for it, and does not list it among its tasks.
+  self.install_chunks()
   Worker::new(self, queues, concurrency, prefetch)
 }
