@@ -13,22 +13,27 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ONLY="${1:-}"
 FAILED=0
 
-# check <scenario> <pattern> — run it, keep its output, and require the pattern.
+# check <scenario> <pattern>... — run it, keep its output, and require every
+# pattern in it. One run can be asked several questions, which is cheaper than
+# starting a worker per question.
 check() {
   scenario="$1"
-  pattern="$2"
+  shift
   if [ -n "$ONLY" ] && [ "$ONLY" != "$scenario" ]; then return 0; fi
   out="$HERE/.out-$scenario.txt"
   echo "================ check $scenario"
   bash "$HERE/run_links.sh" "$scenario" > "$out" 2>&1
-  if grep -qF "$pattern" "$out"; then
-    echo "ok   $scenario"
-  else
-    echo "FAIL $scenario: nothing printed '$pattern'"
-    echo "---- what it printed"
-    cat "$out"
-    FAILED=1
-  fi
+  for pattern in "$@"; do
+    if grep -qF "$pattern" "$out"; then
+      echo "ok   $scenario: $pattern"
+    else
+      echo "FAIL $scenario: nothing printed '$pattern'"
+      echo "---- what it printed"
+      cat "$out"
+      FAILED=1
+      break
+    fi
+  done
   rm -f "$out"
 }
 
@@ -43,6 +48,12 @@ check chain-in '"task": "t.step2", "args": [50]'
 check chord-out '"task": "t.sum", "args": [[10, 20]]'
 # Celery builds the chord, one part runs on each side, and this side closes it.
 check chord-in '"task": "t.sum", "args": [[10, 20]]'
+# A map and a starmap published here, run there: every item once, and a two-item
+# tuple spread into the function's two arguments.
+check fanout-out '"task": "t.add", "args": [3, 4]' '"task": "t.add", "args": [1, 2]' '"task": "t.step1", "args": [3]'
+# Celery's group and starmap, run here: the list of two is the argument list and
+# the single argument is that argument.
+check fanout-in 't.add([10,20])' 't.add([30,40])' 't.step1(5)'
 # A worker killed mid-task leaves a reservation this library hands back, and the
 # task runs again: two entries, one from each worker.
 check recover '"task": "t.slow", "args": [30]'

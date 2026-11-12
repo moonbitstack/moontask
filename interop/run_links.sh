@@ -179,6 +179,32 @@ eta-out)
   say "compare the run's at with the due above"
   ;;
 
+fanout-out)
+  # A map and a starmap published here, run by a Celery worker: one message per
+  # item, and one per tuple with the tuple spread into the function's arguments.
+  setup
+  say "a Celery worker on fanq"
+  WPID=$(worker fanq)
+  sleep 9
+  say "moontask publishes t.step1 over [1,2,3] and t.add over [[1,2],[3,4]]"
+  "$BRIDGE" fanout fanq
+  sleep 6
+  kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null
+  say "what ran"
+  "$PY" "$HERE/celery_side.py" log
+  ;;
+
+fanout-in)
+  # The other direction: Celery publishes a group of single-argument runs and a
+  # starmap of two-argument ones, and this library's worker runs them as they
+  # stand, reading a list of one as one argument and a longer list as the list.
+  setup
+  say "celery publishes a map of t.step1 over [4,5] and a starmap of t.add over [[10,20],[30,40]]"
+  "$PY" "$HERE/celery_side.py" fanout fanq
+  say "moontask consumes fanq"
+  "$BRIDGE" consume fanq 4 20
+  ;;
+
 eta-in)
   # An eta published by Celery: it is on the queue straight away, and the
   # consumer here has to hold it rather than run it early.
@@ -193,7 +219,7 @@ eta-in)
   ;;
 
 all)
-  for one in chain-out chain-in chord-out chord-in recover restore eta-out eta-in; do
+  for one in chain-out chain-in chord-out chord-in fanout-out fanout-in recover restore eta-out eta-in; do
     echo
     echo "================ $one"
     bash "$0" "$one"

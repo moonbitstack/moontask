@@ -9,6 +9,7 @@ back after a worker is killed: what ran, with what arguments, at what time.
     chain    <q1> <q2>              publish a two-link chain, head on q1
     chord    <qa> <qb> <qcb>        publish a chord whose parts are on qa and qb
     eta      <queue> <seconds>      publish t.step1(5) with a countdown
+    fanout   <queue>                publish a group and a starmap
     slow     <seconds> <queue>      publish t.slow, which sleeps
     log [name]                      print what the tasks recorded
     envelope <id>                   print the envelope Celery wrote
@@ -19,7 +20,7 @@ import os
 import sys
 import time
 
-from celery import Celery, chord as chord_of
+from celery import Celery, chord as chord_of, group
 from redis import Redis
 
 BROKER = "redis://127.0.0.1:6379/0"
@@ -139,6 +140,22 @@ def main(argv):
             [step1.s(1).set(queue=qa), step1.s(2).set(queue=qb)]
         )(total.s().set(queue=qcb))
         print(f"celery published chord {result.id}")
+        return
+
+    if command == "fanout":
+        queue = argv[2] if len(argv) > 2 else "celery"
+        # The expanded form of a map and a starmap: one signature per run, the
+        # two-argument ones carrying their two arguments. Celery's own `map` and
+        # `starmap` send one `celery.map` message and expand it in its worker, so
+        # a group of signatures is the shape that travels between two systems.
+        runs = [
+            step1.s(4).set(queue=queue),
+            step1.s(5).set(queue=queue),
+            add.s(10, 20).set(queue=queue),
+            add.s(30, 40).set(queue=queue),
+        ]
+        result = group(runs).apply_async()
+        print(f"celery published a map of 2 and a starmap of 2 on {queue} as {result.id}")
         return
 
     if command == "eta":

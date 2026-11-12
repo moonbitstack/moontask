@@ -7,6 +7,7 @@
 //   example publish <queue> <value>            t.double(value), and wait for it
 //   example chain <q1> <q2>                    a two-link chain, published here
 //   example chord <parts> <callback>           a chord of two parts, published here
+//   example fanout <queue>                     a map and a starmap, published here
 //   example claim <queue>                      take one message and die holding it
 //   example recover <seconds>                  hand back expired reservations
 //   example eta <queue> <seconds>              publish with an eta in the future
@@ -72,12 +73,24 @@ async fn main {
   // Registered for a chain a Celery client started: the head there is t.step1.
   ignore(
     app.task("t.step1", fn(value : Int32, _) {
-      ran.push("t.step1@\{now()}")
+      ran.push("t.step1(\{value})@\{now()}")
       value * 10
     }),
   )
+  // Two arguments, so the list a fan-out publishes decodes into a list here.
+  ignore(
+    app.task("t.add", fn(values : Array[Int32], _) {
+      let shown = Json::array(values.map(fn(v) { Json::number(v.to_double()) }))
+      ran.push("t.add(" + shown.stringify() + ")@\{now()}")
+      let mut total = 0
+      for value in values {
+        total = total + value
+      }
+      total
+    }),
+  )
   let double = app.task("t.double", fn(value : Int32, _) {
-    ran.push("t.double@\{now()}")
+    ran.push("t.double(\{value})@\{now()}")
     value * 2
   })
   let queue = arg(argv, 2, "celery")
@@ -138,6 +151,35 @@ async fn main {
         app,
       )
       say({ "published": Json::string(handle.ids()[0]) })
+    }
+    "fanout" => {
+      // One run per item, and one run per tuple. The first is a list of single
+      // arguments, the second of two-argument lists; a Celery worker spreads the
+      // second into the function's parameters and takes the first as one.
+      let step = app.task("t.step1", fn(value : Int32, _) { value * 10 }, policy={
+        ..@moontask.policy,
+        queue,
+      })
+      let add = app.task(
+        "t.add",
+        fn(values : Array[Int32], _) {
+          let mut total = 0
+          for value in values {
+            total = total + value
+          }
+          total
+        },
+        policy={ ..@moontask.policy, queue, },
+      )
+      let mapped = step.map([1, 2, 3])
+      let starred = add.starmap([[1, 2], [3, 4]])
+      say({
+        "published": Json::number(
+          (mapped.links().length() + starred.links().length()).to_double(),
+        ),
+      })
+      let _ = mapped.send(app)
+      let _ = starred.send(app)
     }
     "claim" => {
       // Take one and leave: the reservation stays in Celery's table, which is
