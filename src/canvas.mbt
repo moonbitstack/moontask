@@ -174,7 +174,7 @@ fn tuple_value(tuple : Json) -> (Json, Bool) raise @spec.Refused {
       }
     _ =>
       raise @spec.Refused::Malformed(
-        got="a tuple that is not a list: " + tuple.stringify(),
+        got="a tuple that is not a list: " + @moonjson.dumps(tuple),
       )
   }
 }
