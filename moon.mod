@@ -1,6 +1,6 @@
 name = "moonbitstack/moontask"
 
-version = "0.1.1"
+version = "0.2.0"
 
 readme = "README.md"
 
@@ -40,10 +40,10 @@ source = "src"
 
 import {
   "moonbitstack/moondate@0.1.7",
-  "moonbitstack/moonjson@0.4.4",
-  "moonbitstack/moonbase@0.4.5",
+  "moonbitstack/moonjson@0.5.0",
+  "moonbitstack/moonbase@0.5.0",
   "moonbitlang/async@0.22.5",
   "moonbitstack/moonstate@0.1.1",
-  "moonbitstack/moonast@0.2.8",
+  "moonbitstack/moonast@0.3.0",
   "moonbitlang/parser@0.4.8",
 }
